@@ -2,24 +2,45 @@
 # See https://github.com/nathabonfim59/claude-statusline for docs.
 
 # Theme to use for the status bar colors.
-# Built-in themes: default, onedark, monokai, catppuccin, dracula, jetbrains
+# Built-in themes: default, onedark, monokai, catppuccin, dracula, jetbrains, oggu
 # You can also create custom themes in ~/.config/claude-statusline/themes/
 theme: default
 
 # Context window progress bar thresholds (%).
 # warning: bar turns yellow at this percentage
 # danger: bar turns red at this percentage
-# Override per model using the model ID from Claude Code (e.g. claude-opus-4-7).
+# Override per model using the model ID from your AI tool.
 thresholds:
   default:
     warning: 50
     danger: 75
 
-# Which blocks to show and in what order.
-# Available blocks for line1: model, git, project, version
-# Available blocks for line2: bar, percent, cost, time, tokens, rates, diff, hash
-# compact: priority order — blocks listed first are kept when the terminal is narrow.
+# --- Global blocks (shared default for all harnesses) ---
+# Available blocks for Claude Code:
+#   line1: model, git, project, version
+#   line2: bar, percent, cost, time, tokens, rates, diff, hash
+#
+# Available blocks for Cursor:
+#   line1: model, git, project, version, vim, worktree, session, autorun, output_style
+#   line2: bar, percent, tokens, hash
 blocks:
   line1: [model, git, project, version]
   line2: [bar, percent, cost, time, tokens, rates, diff, hash]
   compact: [model, bar, percent, cost, git, project, hash, time, tokens, rates, diff, version]
+
+# --- Claude Code harness-specific override ---
+# extends: true  — start from global blocks, override below
+# extends: false — use only the blocks defined here (ignore global)
+#claude_code:
+#  extends: true
+#  blocks:
+#    line1: [model, git, project, version]
+#    line2: [bar, percent, cost, time, tokens, rates, diff, hash]
+
+# --- Cursor harness-specific override ---
+#cursor:
+#  extends: true
+#  blocks:
+#    line1: [model, vim, worktree, session, git, project, autorun, output_style, version]
+#    line2: [bar, percent, tokens, hash]
+#    compact: [model, bar, percent, git, project]

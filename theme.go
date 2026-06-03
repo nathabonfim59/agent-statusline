@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/nathabonfim59/claude-statusline/harness"
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,25 +31,28 @@ type ThemeFile struct {
 	Colors ThemeColors `yaml:"colors"`
 }
 
-// ResolvedTheme holds ready-to-use ANSI escape sequences.
-type ResolvedTheme struct {
-	Primary string
-	Text    string
-	Success string
-	Warning string
-	Danger  string
-}
-
 type BlockConfig struct {
 	Line1   []string `yaml:"line1"`
 	Line2   []string `yaml:"line2"`
 	Compact []string `yaml:"compact"`
 }
 
+type ThresholdConfig struct {
+	Warning float64 `yaml:"warning"`
+	Danger  float64 `yaml:"danger"`
+}
+
+type HarnessConfig struct {
+	Extends bool        `yaml:"extends"`
+	Blocks  BlockConfig `yaml:"blocks"`
+}
+
 type Config struct {
 	Theme      string                     `yaml:"theme"`
 	Thresholds map[string]ThresholdConfig `yaml:"thresholds"`
 	Blocks     BlockConfig                `yaml:"blocks"`
+	ClaudeCode HarnessConfig              `yaml:"claude_code"`
+	Cursor     HarnessConfig              `yaml:"cursor"`
 }
 
 var builtinDefault = ThemeFile{
@@ -122,24 +126,51 @@ func loadConfig() Config {
 	return cfg
 }
 
+func resolveBlocks(cfg Config, harnessName string) BlockConfig {
+	var hc HarnessConfig
+	switch harnessName {
+	case "claude_code":
+		hc = cfg.ClaudeCode
+	case "cursor":
+		hc = cfg.Cursor
+	default:
+		return cfg.Blocks
+	}
+
+	if !hc.Extends {
+		return hc.Blocks
+	}
+	result := cfg.Blocks
+	if len(hc.Blocks.Line1) > 0 {
+		result.Line1 = hc.Blocks.Line1
+	}
+	if len(hc.Blocks.Line2) > 0 {
+		result.Line2 = hc.Blocks.Line2
+	}
+	if len(hc.Blocks.Compact) > 0 {
+		result.Compact = hc.Blocks.Compact
+	}
+	return result
+}
+
 func resolveColor(val string) string {
 	switch strings.ToLower(strings.TrimSpace(val)) {
 	case "cyan":
-		return cyan
+		return harness.Cyan
 	case "green":
-		return green
+		return harness.Green
 	case "yellow":
-		return yellow
+		return harness.Yellow
 	case "red":
-		return red
+		return harness.Red
 	case "white":
-		return white
+		return harness.White
 	case "dim":
-		return dim
+		return harness.Dim
 	case "bold":
-		return bold
+		return harness.Bold
 	case "reset", "default", "":
-		return reset
+		return harness.Reset
 	}
 	if strings.HasPrefix(val, "#") && len(val) == 7 {
 		r := hexNibble(val[1:3])
@@ -147,7 +178,7 @@ func resolveColor(val string) string {
 		b := hexNibble(val[5:7])
 		return fmt.Sprintf("\033[38;2;%d;%d;%dm", r, g, b)
 	}
-	return val // pass through raw ANSI sequences
+	return val
 }
 
 func hexNibble(s string) int {
@@ -164,8 +195,8 @@ func hexNibble(s string) int {
 	return v
 }
 
-func resolveTheme(tf ThemeFile) ResolvedTheme {
-	return ResolvedTheme{
+func resolveTheme(tf ThemeFile) harness.Theme {
+	return harness.Theme{
 		Primary: resolveColor(tf.Colors.Primary),
 		Text:    resolveColor(tf.Colors.Text),
 		Success: resolveColor(tf.Colors.Success),
@@ -174,16 +205,12 @@ func resolveTheme(tf ThemeFile) ResolvedTheme {
 	}
 }
 
-// loadTheme resolves a theme by name.
-// Precedence: local override (~/.config/claude-statusline/themes/<name>.yaml)
-// → built-in (embedded themes/<name>.yaml) → hard-coded default.
-func loadTheme(name string) ResolvedTheme {
+func loadTheme(name string) harness.Theme {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" {
 		name = "default"
 	}
 
-	// 1. Local override
 	localPath := filepath.Join(configDir(), "themes", name+".yaml")
 	if data, err := os.ReadFile(localPath); err == nil {
 		var tf ThemeFile
@@ -192,7 +219,6 @@ func loadTheme(name string) ResolvedTheme {
 		}
 	}
 
-	// 2. Built-in embedded theme
 	if data, err := builtinThemesFS.ReadFile("themes/" + name + ".yaml"); err == nil {
 		var tf ThemeFile
 		if yaml.Unmarshal(data, &tf) == nil {
@@ -200,6 +226,39 @@ func loadTheme(name string) ResolvedTheme {
 		}
 	}
 
-	// 3. Hard-coded fallback
 	return resolveTheme(builtinDefault)
+}
+
+func resolveThresholds(cfg Config, modelID string) (warn, danger float64) {
+	warn, danger = 50, 75
+	if cfg.Thresholds == nil {
+		return
+	}
+	if d, ok := cfg.Thresholds["default"]; ok {
+		if d.Warning > 0 {
+			warn = d.Warning
+		}
+		if d.Danger > 0 {
+			danger = d.Danger
+		}
+	}
+	if t, ok := cfg.Thresholds[modelID]; ok {
+		if t.Warning > 0 {
+			warn = t.Warning
+		}
+		if t.Danger > 0 {
+			danger = t.Danger
+		}
+	}
+	return
+}
+
+func getHarnessConfig(cfg Config, name string) *HarnessConfig {
+	switch name {
+	case "claude_code":
+		return &cfg.ClaudeCode
+	case "cursor":
+		return &cfg.Cursor
+	}
+	return nil
 }
