@@ -137,6 +137,9 @@ func resolveBlocks(cfg Config, harnessName string) BlockConfig {
 		return cfg.Blocks
 	}
 
+	if len(hc.Blocks.Line1) == 0 && len(hc.Blocks.Line2) == 0 && len(hc.Blocks.Compact) == 0 {
+		return cfg.Blocks
+	}
 	if !hc.Extends {
 		return hc.Blocks
 	}
