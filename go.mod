@@ -1,4 +1,4 @@
-module github.com/nathabonfim59/claude-statusline
+module github.com/nathabonfim59/agent-statusline
 
 go 1.26.1
 

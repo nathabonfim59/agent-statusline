@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="nathabonfim59/cc-statusline"
+REPO="nathabonfim59/agent-statusline"
 BINARY="claude-statusline"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 

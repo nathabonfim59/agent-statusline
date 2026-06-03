@@ -1,6 +1,6 @@
 //go:build !windows
 
-package main
+package harness
 
 import (
 	"os"
@@ -18,7 +18,7 @@ type winsize struct {
 	Y    uint16
 }
 
-func terminalWidth() int {
+func TerminalWidth() int {
 	if col := os.Getenv("COLUMNS"); col != "" {
 		if w, err := strconv.Atoi(col); err == nil && w > 0 {
 			return w

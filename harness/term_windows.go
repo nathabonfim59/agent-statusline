@@ -1,4 +1,4 @@
-package main
+package harness
 
 import (
 	"os"
@@ -34,13 +34,12 @@ type consoleScreenBufferInfo struct {
 	MaximumWindowSize coord
 }
 
-func terminalWidth() int {
+func TerminalWidth() int {
 	if col := os.Getenv("COLUMNS"); col != "" {
 		if w, err := strconv.Atoi(col); err == nil && w > 0 {
 			return w
 		}
 	}
-	// STD_OUTPUT_HANDLE = -11
 	h, _, _ := procGetStdHandle.Call(uintptr(^uint32(0) - 10))
 	if h != 0 {
 		var info consoleScreenBufferInfo

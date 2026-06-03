@@ -1,0 +1,31 @@
+{
+  "session_id": "min-cursor",
+  "session_name": null,
+  "render_width_chars": 80,
+  "cwd": "/home/dev/small-project",
+  "autorun": false,
+  "model": {
+    "id": "claude-4-opus",
+    "display_name": "Claude 4 Opus",
+    "param_summary": null,
+    "max_mode": null
+  },
+  "workspace": {
+    "current_dir": "/home/dev/small-project",
+    "project_dir": "/home/dev/small-project"
+  },
+  "version": "1.2.3",
+  "output_style": {
+    "name": "compact"
+  },
+  "context_window": {
+    "total_input_tokens": 5000,
+    "total_output_tokens": null,
+    "context_window_size": 200000,
+    "used_percentage": null,
+    "remaining_percentage": 97.5,
+    "current_usage": null
+  },
+  "vim": null,
+  "worktree": null
+}
