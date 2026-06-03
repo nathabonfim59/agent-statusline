@@ -3,7 +3,7 @@ package claude_code
 import (
 	"fmt"
 
-	"github.com/nathabonfim59/claude-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/harness"
 )
 
 func renderDiff(in *Input, t harness.Theme) string {

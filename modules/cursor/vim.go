@@ -1,7 +1,7 @@
 package cursor
 
 import (
-	"github.com/nathabonfim59/claude-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/harness"
 )
 
 func renderVim(in *CursorInput, t harness.Theme) string {

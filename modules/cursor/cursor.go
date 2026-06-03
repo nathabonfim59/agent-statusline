@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nathabonfim59/claude-statusline/harness"
-	"github.com/nathabonfim59/claude-statusline/shared"
+	"github.com/nathabonfim59/agent-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/shared"
 )
 
 type CursorInput struct {

@@ -7,10 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nathabonfim59/claude-statusline/harness"
+"github.com/nathabonfim59/agent-statusline/harness"
 
-	_ "github.com/nathabonfim59/claude-statusline/claude_code"
-	_ "github.com/nathabonfim59/claude-statusline/modules/cursor"
+	_ "github.com/nathabonfim59/agent-statusline/claude_code"
+
+	_ "github.com/nathabonfim59/agent-statusline/modules/cursor"
 )
 
 func buildLine(order []string, blocks map[string]string, compact []string, tw int) string {

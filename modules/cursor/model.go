@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nathabonfim59/claude-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/harness"
 )
 
 func renderModel(in *CursorInput, t harness.Theme) string {

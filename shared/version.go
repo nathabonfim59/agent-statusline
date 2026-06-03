@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"github.com/nathabonfim59/claude-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/harness"
 )
 
 func Version(version string, cwd, projectDir string, t harness.Theme) string {

@@ -3,7 +3,7 @@ package cursor
 import (
 	"fmt"
 
-	"github.com/nathabonfim59/claude-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/harness"
 )
 
 func renderTokens(in *CursorInput, t harness.Theme) string {

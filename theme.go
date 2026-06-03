@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nathabonfim59/claude-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/harness"
 	"gopkg.in/yaml.v3"
 )
 
