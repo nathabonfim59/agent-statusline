@@ -80,7 +80,7 @@ func runFilter(cmd *cobra.Command, args []string) {
 	line1 := buildLine(blockCfg.Line1, rendered, blockCfg.Compact, tw)
 	line2 := buildLine(blockCfg.Line2, rendered, blockCfg.Compact, tw)
 
-	fmt.Printf("%s\n%s", line1, line2)
+	fmt.Printf("%s\n%s\n", line1, line2)
 }
 
 func buildLine(order []string, blocks map[string]string, compact []string, tw int) string {

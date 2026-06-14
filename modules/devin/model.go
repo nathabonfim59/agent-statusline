@@ -2,6 +2,7 @@ package devin
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nathabonfim59/agent-statusline/harness"
 )
@@ -11,6 +12,15 @@ func renderModel(h *Harness, t harness.Theme) string {
 		return ""
 	}
 	ctx := h.models[h.live.Model]
+	if ctx == 0 {
+		// Try case-insensitive fallback
+		for k, v := range h.models {
+			if strings.EqualFold(k, h.live.Model) {
+				ctx = v
+				break
+			}
+		}
+	}
 	ctxHuman := harness.HumanTokens(ctx)
 	total := h.live.InputTokens + h.live.OutputTokens
 	result := fmt.Sprintf("%s%s%s%s %s(%s)%s",
