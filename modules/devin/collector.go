@@ -52,16 +52,13 @@ func (c *Collector) handleChatMessage(data []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Always track the latest model — whatever Devin is currently running.
+	// Always track the latest model and tokens — Devin auto-compacts on model
+	// switch, so the most recent message always has the correct values.
 	model := extractModel(msgs[0])
-	if model != "" && model != c.data.Model {
+	if model != "" {
 		c.data.Model = model
-		// Model changed — reset tokens so old counts don't skew the percentage.
-		c.data.InputTokens = 0
-		c.data.OutputTokens = 0
 	}
 
-	// Extract tokens from tail messages — take the highest (cumulative total)
 	var bestIt, bestOt int
 	for _, msg := range msgs {
 		it, ot := extractTokens(msg)
@@ -76,12 +73,8 @@ func (c *Collector) handleChatMessage(data []byte) {
 		}
 	}
 	if bestIt > 0 || bestOt > 0 {
-		if bestIt > c.data.InputTokens {
-			c.data.InputTokens = bestIt
-		}
-		if bestOt > c.data.OutputTokens {
-			c.data.OutputTokens = bestOt
-		}
+		c.data.InputTokens = bestIt
+		c.data.OutputTokens = bestOt
 	}
 }
 

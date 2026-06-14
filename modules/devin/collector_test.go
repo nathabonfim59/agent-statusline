@@ -18,7 +18,7 @@ func TestExtractUsageStats(t *testing.T) {
 	}
 }
 
-func TestHandleChatMessageKeepsHighestTokens(t *testing.T) {
+func TestHandleChatMessageLatestWins(t *testing.T) {
 	stats, err := hex.DecodeString("0a28626f742d35356662346638312d326461652d343833312d623861362d646336323233623333616531120c08f78bbcd10610a1d1a8de01e2016e0a13526573706f6e73652053746174697374696373123c2a0e6167656e745f6d65737361676573222a0a0e4167656e74206d65737361676573150000803f1a08206d6573736167652209206d6573736167657312192a056d6f64656c1a100a054d6f64656c12075357452d312e36e201ba010a0b546f6b656e20557361676512342a0c696e7075745f746f6b656e7322240a0c496e70757420746f6b656e731500587a461a0620746f6b656e220720746f6b656e7312362a0d6f75747075745f746f6b656e7322250a0d4f757470757420746f6b656e73150000ef431a0620746f6b656e220720746f6b656e73123d2a136361636865645f696e7075745f746f6b656e7322260a1343616368656420696e70757420746f6b656e731a0620746f6b656e220720746f6b656e73")
 	if err != nil {
 		t.Fatal(err)
@@ -26,11 +26,16 @@ func TestHandleChatMessageKeepsHighestTokens(t *testing.T) {
 
 	c := NewCollector()
 	c.handleChatMessage(connectStream([]byte{}, stats))
-	c.handleChatMessage(connectStream([]byte{}, []byte{0x3a, 0x04, 0x10, 0x31, 0x18, 0x3e}))
-
 	data := c.GetData().(DevinData)
 	if data.InputTokens != 16022 || data.OutputTokens != 478 {
-		t.Fatalf("collector data = %d, %d; want 16022, 478", data.InputTokens, data.OutputTokens)
+		t.Fatalf("first call: collector data = %d, %d; want 16022, 478", data.InputTokens, data.OutputTokens)
+	}
+
+	// Second message (input=49, output=62) should overwrite — latest wins.
+	c.handleChatMessage(connectStream([]byte{}, []byte{0x3a, 0x04, 0x10, 0x31, 0x18, 0x3e}))
+	data = c.GetData().(DevinData)
+	if data.InputTokens != 49 || data.OutputTokens != 62 {
+		t.Fatalf("second call: collector data = %d, %d; want 49, 62", data.InputTokens, data.OutputTokens)
 	}
 }
 
