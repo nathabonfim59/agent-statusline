@@ -3,6 +3,7 @@ package devin
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/nathabonfim59/agent-statusline/harness"
@@ -51,7 +52,7 @@ func (h *Harness) Parse(raw []byte) error {
 func (h *Harness) ContextPct() float64 {
 	ctx := h.models[h.live.Model]
 	if ctx > 0 {
-		return float64(h.live.InputTokens) / float64(ctx) * 100
+		return math.Floor(float64(h.live.InputTokens) / float64(ctx) * 100)
 	}
 	return 0
 }
