@@ -58,14 +58,24 @@ func (c *Collector) handleChatMessage(data []byte) {
 		}
 	}
 
-	// Extract tokens from last messages
-	for _, msg := range msgs[len(msgs)-5:] {
+	// Extract tokens from tail messages — take the highest (cumulative total)
+	var bestIt, bestOt int
+	start := len(msgs) - 20
+	if start < 0 {
+		start = 0
+	}
+	for _, msg := range msgs[start:] {
 		it, ot := extractTokens(msg)
-		if it > 0 || ot > 0 {
-			c.data.InputTokens = it
-			c.data.OutputTokens = ot
-			return
+		if it > bestIt {
+			bestIt = it
 		}
+		if ot > bestOt {
+			bestOt = ot
+		}
+	}
+	if bestIt > 0 || bestOt > 0 {
+		c.data.InputTokens = bestIt
+		c.data.OutputTokens = bestOt
 	}
 }
 
