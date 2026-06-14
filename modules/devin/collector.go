@@ -66,19 +66,9 @@ func (c *Collector) handleChatMessage(data []byte) {
 		dumpMessages(msgs)
 	}
 
-	// Only track messages from the main session — subagent responses don't
-	// carry the Token Usage stats block (field 28).
+	// Only update on responses that carry the Token Usage stats block (field 28).
 	sid := extractSessionID(msgs[0])
 	model := extractModel(msgs[0])
-
-	// Lock to the first session ID we see — ignore subagent/summarizer sessions.
-	if c.sessionID == "" {
-		if sid != "" {
-			c.sessionID = sid
-		}
-	} else if sid != "" && sid != c.sessionID {
-		return
-	}
 
 	var bestIt, bestOt int
 	hasStats := false
@@ -100,6 +90,11 @@ func (c *Collector) handleChatMessage(data []byte) {
 		return
 	}
 
+	// Track the most recent session that sent stats — auto-selection and
+	// /model switches create new sessions, so we follow the latest one.
+	if sid != "" {
+		c.sessionID = sid
+	}
 	if model != "" {
 		c.data.Model = model
 	}
