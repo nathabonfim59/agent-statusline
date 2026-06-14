@@ -146,9 +146,11 @@ func proxyCmd() *cobra.Command {
 		Short: "Manage HTTPS proxy for intercepting agent traffic",
 	}
 
+	available := availableHarnesses()
+
 	cmd.AddCommand(&cobra.Command{
-		Use:   "start <harness>",
-		Short: "Start proxy for a harness (devin, cursor, claude_code)",
+		Use:   fmt.Sprintf("start <%s>", strings.Join(available, "|")),
+		Short: "Start proxy for a harness",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			proxyStart(args[0])
@@ -183,6 +185,16 @@ func proxyCmd() *cobra.Command {
 	})
 
 	return cmd
+}
+
+func availableHarnesses() []string {
+	var available []string
+	for _, h := range []harness.Harness{devin.New(), cursor.New(), claude_code.New()} {
+		if h.ProxyConfig() != nil {
+			available = append(available, h.Name())
+		}
+	}
+	return available
 }
 
 func proxyStart(harnessName string) {

@@ -118,39 +118,63 @@ func InstallCA() error {
 		}
 	}
 
-	fmt.Printf("CA certificate is at: %s\n\n", certPath)
-	fmt.Println("To trust this certificate, run the following commands:\n")
+	fmt.Printf("CA certificate: %s\n\n", certPath)
+	fmt.Println("To trust this certificate, run:\n")
+
+	var cmds []string
 
 	switch runtime.GOOS {
 	case "linux":
 		distro := detectLinuxDistro()
 		switch distro {
 		case "debian":
-			fmt.Printf("  sudo cp %s /usr/local/share/ca-certificates/claude-statusline-ca.crt\n", certPath)
-			fmt.Println("  sudo update-ca-certificates")
+			cmds = []string{
+				fmt.Sprintf("sudo cp %s /usr/local/share/ca-certificates/agent-statusline-ca.crt", certPath),
+				"sudo update-ca-certificates",
+			}
 		case "rhel":
-			fmt.Printf("  sudo cp %s /etc/pki/ca-trust/source/anchors/\n", certPath)
-			fmt.Println("  sudo update-ca-trust")
+			cmds = []string{
+				fmt.Sprintf("sudo cp %s /etc/pki/ca-trust/source/anchors/", certPath),
+				"sudo update-ca-trust",
+			}
 		case "arch":
-			fmt.Printf("  sudo cp %s /etc/ca-certificates/trust-source/anchors/\n", certPath)
-			fmt.Println("  sudo trust extract-compat")
+			cmds = []string{
+				fmt.Sprintf("sudo cp %s /etc/ca-certificates/trust-source/anchors/", certPath),
+				"sudo trust extract-compat",
+			}
 		case "suse":
-			fmt.Printf("  sudo cp %s /etc/pki/trust/anchors/\n", certPath)
-			fmt.Println("  sudo update-ca-certificates")
+			cmds = []string{
+				fmt.Sprintf("sudo cp %s /etc/pki/trust/anchors/", certPath),
+				"sudo update-ca-certificates",
+			}
 		default:
-			fmt.Println("  (distro not detected — try one of these:)")
-			fmt.Printf("  Debian/Ubuntu: sudo cp %s /usr/local/share/ca-certificates/ && sudo update-ca-certificates\n", certPath)
-			fmt.Printf("  Fedora/RHEL:   sudo cp %s /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust\n", certPath)
-			fmt.Printf("  Arch:          sudo cp %s /etc/ca-certificates/trust-source/anchors/ && sudo trust extract-compat\n", certPath)
+			cmds = []string{
+				fmt.Sprintf("# Unknown distro — try one of:"),
+				fmt.Sprintf("# Debian/Ubuntu:"),
+				fmt.Sprintf("sudo cp %s /usr/local/share/ca-certificates/ && sudo update-ca-certificates", certPath),
+				fmt.Sprintf("# Fedora/RHEL:"),
+				fmt.Sprintf("sudo cp %s /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust", certPath),
+				fmt.Sprintf("# Arch:"),
+				fmt.Sprintf("sudo cp %s /etc/ca-certificates/trust-source/anchors/ && sudo trust extract-compat", certPath),
+			}
 		}
 
 	case "darwin":
-		fmt.Printf("  sudo security add-trusted-cert -d -p ssl -k /Library/Keychains/System.keychain %s\n", certPath)
+		cmds = []string{
+			fmt.Sprintf("sudo security add-trusted-cert -d -p ssl -k /Library/Keychains/System.keychain %s", certPath),
+		}
 
 	default:
-		fmt.Printf("  No automatic instructions for %s.\n", runtime.GOOS)
-		fmt.Printf("  Install the CA certificate manually from: %s\n", certPath)
+		fmt.Printf("No automatic instructions for %s.\n", runtime.GOOS)
+		fmt.Printf("Install the CA certificate manually from: %s\n", certPath)
+		return nil
 	}
+
+	fmt.Println("  ┌─────────────────────────────────────────────────────")
+	for _, c := range cmds {
+		fmt.Printf("  │ %s\n", c)
+	}
+	fmt.Println("  └─────────────────────────────────────────────────────")
 
 	return nil
 }
