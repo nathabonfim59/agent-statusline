@@ -373,7 +373,7 @@ func proxyStart(harnessName, label string) {
 	fmt.Printf("  Data URL:   %shttp://127.0.0.1:%d/data%s\n\n", harness.Dim, srv.DataPort(), harness.Reset)
 	fmt.Printf("export HTTP_PROXY=http://127.0.0.1:%d\n", srv.Port())
 	fmt.Printf("export HTTPS_PROXY=http://127.0.0.1:%d\n", srv.Port())
-	fmt.Printf("\n%sRun ./claude-statusline devin %s to show statusline%s\n\n", harness.Dim, label, harness.Reset)
+	fmt.Printf("\n%sRun the command below to show the statusline%s\n\n", harness.Dim, harness.Reset)
 	fmt.Printf("./claude-statusline devin %s\n", label)
 
 	sig := make(chan os.Signal, 1)
