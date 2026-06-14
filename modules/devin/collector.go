@@ -17,10 +17,11 @@ type DevinData struct {
 }
 
 type Collector struct {
-	mu        sync.RWMutex
-	data      DevinData
-	sessionID string
-	debug     bool
+	mu            sync.RWMutex
+	data          DevinData
+	sessionID     string
+	justCompacted bool
+	debug         bool
 }
 
 func NewCollector() *Collector {
@@ -55,7 +56,7 @@ func (c *Collector) GetData() interface{} {
 
 func (c *Collector) handleChatMessage(data []byte) {
 	msgs := parseEnvelopes(data)
-	if len(msgs) < 2 {
+	if len(msgs) < 3 {
 		return
 	}
 
@@ -66,46 +67,40 @@ func (c *Collector) handleChatMessage(data []byte) {
 		dumpMessages(msgs)
 	}
 
-	// Only update on responses that carry the Token Usage stats block (field 28).
-	sid := extractSessionID(msgs[0])
-	model := extractModel(msgs[0])
-
-	var bestIt, bestOt int
-	hasStats := false
-	for _, msg := range msgs {
-		it, ot := extractTokens(msg)
-		if sit, sot := extractUsageStats(msg); sit > 0 || sot > 0 {
-			it, ot = sit, sot
-			hasStats = true
-		}
-		if it > bestIt {
-			bestIt = it
-		}
-		if ot > bestOt {
-			bestOt = ot
-		}
-	}
-
-	if !hasStats {
+	// Only process complete responses — the last message is the [15] end marker.
+	if !isEndMarker(msgs[len(msgs)-1]) {
 		return
 	}
 
-	// Follow the latest session that sent stats.
-	if sid != "" {
-		if sid != c.sessionID {
-			c.data.InputTokens = 0
-		}
-		c.sessionID = sid
+	// Content message is 2 before end, stats trailer is 1 before end.
+	contentMsg := msgs[len(msgs)-3]
+	statsMsg := msgs[len(msgs)-2]
+
+	model := extractModel(contentMsg)
+	sit, sot := extractUsageStats(statsMsg)
+	if sit == 0 && sot == 0 {
+		return
 	}
 
-	// The stats trailer has an empty model — use the previous model.
+	// Compactor: update tokens only, keep current model.
+	if model == "compactor" {
+		c.data.InputTokens = sit + sot
+		c.data.OutputTokens = sot
+		c.justCompacted = true
+		return
+	}
+
+	// Subagent heuristic: smaller input than current, and no compaction preceded it.
+	if sit+sot < c.data.InputTokens && !c.justCompacted {
+		return
+	}
+
+	c.justCompacted = false
 	if model != "" {
 		c.data.Model = model
 	}
-
-	// Sum in+out: output tokens become input context in the next turn.
-	c.data.InputTokens += bestIt + bestOt
-	c.data.OutputTokens = bestOt
+	c.data.InputTokens = sit + sot
+	c.data.OutputTokens = sot
 }
 
 func (c *Collector) handleUserStatus(data []byte) {
@@ -359,6 +354,11 @@ func parseStatValue(data []byte) int {
 		}
 	}
 	return 0
+}
+
+func isEndMarker(msg []byte) bool {
+	fields := topLevelFields(msg)
+	return len(fields) == 1 && fields[0] == 15
 }
 
 func dumpMessages(msgs [][]byte) {
