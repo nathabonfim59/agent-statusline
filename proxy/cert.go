@@ -170,11 +170,9 @@ func InstallCA() error {
 		return nil
 	}
 
-	fmt.Println("  ┌─────────────────────────────────────────────────────")
 	for _, c := range cmds {
-		fmt.Printf("  │ %s\n", c)
+		fmt.Println(c)
 	}
-	fmt.Println("  └─────────────────────────────────────────────────────")
 
 	return nil
 }
