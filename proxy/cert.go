@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -72,6 +72,40 @@ func LoadCA() (cert, key []byte, err error) {
 	return cert, key, nil
 }
 
+func LoadOrGenerateCA() (cert, key []byte, err error) {
+	cert, key, err = LoadCA()
+	if err == nil {
+		return cert, key, nil
+	}
+	return GenerateCA()
+}
+
+func detectLinuxDistro() string {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return ""
+	}
+	content := string(data)
+	lower := strings.ToLower(content)
+
+	switch {
+	case strings.Contains(lower, "debian"), strings.Contains(lower, "ubuntu"),
+		strings.Contains(lower, "linux mint"), strings.Contains(lower, "pop!_os"):
+		return "debian"
+	case strings.Contains(lower, "rhel"), strings.Contains(lower, "fedora"),
+		strings.Contains(lower, "centos"), strings.Contains(lower, "rocky"),
+		strings.Contains(lower, "alma"):
+		return "rhel"
+	case strings.Contains(lower, "arch"), strings.Contains(lower, "manjaro"),
+		strings.Contains(lower, "endeavour"):
+		return "arch"
+	case strings.Contains(lower, "opensuse"), strings.Contains(lower, "suse"):
+		return "suse"
+	default:
+		return "unknown"
+	}
+}
+
 func InstallCA() error {
 	dir := certDir()
 	certPath := filepath.Join(dir, "ca-cert.pem")
@@ -83,49 +117,39 @@ func InstallCA() error {
 		}
 	}
 
+	fmt.Printf("CA certificate is at: %s\n\n", certPath)
+	fmt.Println("To trust this certificate, run the following commands:\n")
+
 	switch runtime.GOOS {
 	case "linux":
-		dst := "/usr/local/share/ca-certificates/claude-statusline-ca.crt"
-		cmd := exec.Command("sudo", "cp", certPath, dst)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("Manual install: sudo cp %s %s && sudo update-ca-certificates\n", certPath, dst)
-			return err
+		distro := detectLinuxDistro()
+		switch distro {
+		case "debian":
+			fmt.Printf("  sudo cp %s /usr/local/share/ca-certificates/claude-statusline-ca.crt\n", certPath)
+			fmt.Println("  sudo update-ca-certificates")
+		case "rhel":
+			fmt.Printf("  sudo cp %s /etc/pki/ca-trust/source/anchors/\n", certPath)
+			fmt.Println("  sudo update-ca-trust")
+		case "arch":
+			fmt.Printf("  sudo cp %s /etc/ca-certificates/trust-source/anchors/\n", certPath)
+			fmt.Println("  sudo trust extract-compat")
+		case "suse":
+			fmt.Printf("  sudo cp %s /etc/pki/trust/anchors/\n", certPath)
+			fmt.Println("  sudo update-ca-certificates")
+		default:
+			fmt.Println("  (distro not detected — try one of these:)")
+			fmt.Printf("  Debian/Ubuntu: sudo cp %s /usr/local/share/ca-certificates/ && sudo update-ca-certificates\n", certPath)
+			fmt.Printf("  Fedora/RHEL:   sudo cp %s /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust\n", certPath)
+			fmt.Printf("  Arch:          sudo cp %s /etc/ca-certificates/trust-source/anchors/ && sudo trust extract-compat\n", certPath)
 		}
-		cmd = exec.Command("sudo", "update-ca-certificates")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("Manual: sudo update-ca-certificates\n")
-			return err
-		}
-		fmt.Println("CA installed to system trust store (Linux).")
-		return nil
 
 	case "darwin":
-		cmd := exec.Command("security", "add-trusted-cert", "-d", "-p", "ssl", "-k",
-			"/Library/Keychains/System.keychain", certPath)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("Manual install: sudo security add-trusted-cert -d -p ssl %s\n", certPath)
-			return err
-		}
-		fmt.Println("CA installed to system trust store (macOS).")
-		return nil
+		fmt.Printf("  sudo security add-trusted-cert -d -p ssl -k /Library/Keychains/System.keychain %s\n", certPath)
 
 	default:
-		fmt.Printf("Automatic CA install not supported on %s.\n", runtime.GOOS)
-		fmt.Printf("Install manually: %s\n", certPath)
-		return nil
+		fmt.Printf("  No automatic instructions for %s.\n", runtime.GOOS)
+		fmt.Printf("  Install the CA certificate manually from: %s\n", certPath)
 	}
-}
 
-func LoadOrGenerateCA() (cert, key []byte, err error) {
-	cert, key, err = LoadCA()
-	if err == nil {
-		return cert, key, nil
-	}
-	return GenerateCA()
+	return nil
 }
