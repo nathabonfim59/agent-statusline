@@ -29,9 +29,9 @@ func GenerateCA() (cert, key []byte, err error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName:         "agent-statusline CA",
-			Organization:       []string{"agent-statusline"},
-			OrganizationalUnit: []string{"https://github.com/nathabonfim59/agent-statusline"},
+			CommonName:         "agent-statusline Local CA (self-signed)",
+			Organization:       []string{"agent-statusline — local MITM proxy"},
+			OrganizationalUnit: []string{"Private key stored only on this machine. https://github.com/nathabonfim59/agent-statusline"},
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(10 * 365 * 24 * time.Hour),
