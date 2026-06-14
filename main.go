@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -23,7 +24,7 @@ import (
 	_ "github.com/nathabonfim59/agent-statusline/modules/devin"
 )
 
-var runningProxy *proxy.ProxyServer
+var runningProxies = map[string]*proxy.ProxyServer{}
 
 func main() {
 	root := &cobra.Command{
@@ -148,23 +149,46 @@ func proxyCmd() *cobra.Command {
 
 	available := availableHarnesses()
 
-	cmd.AddCommand(&cobra.Command{
+	startCmd := &cobra.Command{
 		Use:   fmt.Sprintf("start <%s>", strings.Join(available, "|")),
 		Short: "Start proxy for a harness",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			proxyStart(args[0])
+			label, _ := cmd.Flags().GetString("label")
+			if label == "" {
+				label = randomName()
+			}
+			proxyStart(args[0], label)
 		},
-	})
+	}
+	startCmd.Flags().StringP("label", "l", "", "label for this proxy instance (random if not set)")
 
-	cmd.AddCommand(&cobra.Command{
-		Use:   "stop",
-		Short: "Stop the running proxy",
+	stopCmd := &cobra.Command{
+		Use:   "stop [label]",
+		Short: "Stop a proxy by label, or all if no label given",
 		Run: func(cmd *cobra.Command, args []string) {
-			proxyStop()
+			label := ""
+			if len(args) > 0 {
+				label = args[0]
+			}
+			proxyStop(label)
 		},
-	})
+	}
 
+	statusCmd := &cobra.Command{
+		Use:   "status [label]",
+		Short: "Show proxy status and ports",
+		Run: func(cmd *cobra.Command, args []string) {
+			label := ""
+			if len(args) > 0 {
+				label = args[0]
+			}
+			proxyStatus(label)
+		},
+	}
+
+	cmd.AddCommand(startCmd)
+	cmd.AddCommand(stopCmd)
 	cmd.AddCommand(&cobra.Command{
 		Use:   "install-ca",
 		Short: "Show instructions to install the CA certificate",
@@ -175,14 +199,7 @@ func proxyCmd() *cobra.Command {
 			}
 		},
 	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "status",
-		Short: "Show proxy status and ports",
-		Run: func(cmd *cobra.Command, args []string) {
-			proxyStatus()
-		},
-	})
+	cmd.AddCommand(statusCmd)
 
 	return cmd
 }
@@ -197,7 +214,19 @@ func availableHarnesses() []string {
 	return available
 }
 
-func proxyStart(harnessName string) {
+var adjectives = []string{"swift", "calm", "bright", "keen", "bold", "warm", "cool", "sharp", "quiet", "lively", "fresh", "eager", "gentle", "proud", "wild"}
+var nouns = []string{"proxy", "relay", "bridge", "tunnel", "gate", "link", "node", "port", "route", "pulse", "spark", "flux", "beam", "wave", "stream"}
+
+func randomName() string {
+	return adjectives[time.Now().UnixNano()%int64(len(adjectives))] + "-" +
+		nouns[time.Now().UnixNano()/int64(len(adjectives))%int64(len(nouns))]
+}
+
+func portFilePath(harness, label string) string {
+	return fmt.Sprintf("/tmp/claude-statusline-%s-%s.port", harness, label)
+}
+
+func proxyStart(harnessName, label string) {
 	var h harness.Harness
 	switch harnessName {
 	case "devin":
@@ -222,11 +251,13 @@ func proxyStart(harnessName string) {
 		fmt.Fprintf(os.Stderr, "%sfailed to start proxy: %v%s\n", harness.Red, err, harness.Reset)
 		os.Exit(1)
 	}
-	runningProxy = srv
 
-	os.WriteFile("/tmp/claude-statusline-devin-data.port", []byte(fmt.Sprintf("%d", srv.DataPort())), 0o644)
+	key := harnessName + "/" + label
+	runningProxies[key] = srv
+	portFile := portFilePath(harnessName, label)
+	os.WriteFile(portFile, []byte(fmt.Sprintf("%d", srv.DataPort())), 0o644)
 
-	fmt.Printf("%sProxy started for %s%s%s\n", harness.Green, harness.Bold, harnessName, harness.Reset)
+	fmt.Printf("%sProxy started for %s%s%s (%s)%s\n", harness.Green, harness.Bold, harnessName, harness.Cyan, label, harness.Reset)
 	fmt.Printf("  Proxy port: %s%d%s\n", harness.Cyan, srv.Port(), harness.Reset)
 	fmt.Printf("  Data port:  %s%d%s\n", harness.Cyan, srv.DataPort(), harness.Reset)
 	fmt.Printf("  Data URL:   %shttp://127.0.0.1:%d/data%s\n\n", harness.Dim, srv.DataPort(), harness.Reset)
@@ -237,25 +268,45 @@ func proxyStart(harnessName string) {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 
-	fmt.Fprintf(os.Stderr, "\nShutting down...\n")
+	fmt.Fprintf(os.Stderr, "\nShutting down %s...\n", label)
 	srv.Stop()
-	os.Remove("/tmp/claude-statusline-devin-data.port")
+	delete(runningProxies, key)
+	os.Remove(portFile)
 }
 
-func proxyStop() {
-	if runningProxy != nil {
-		runningProxy.Stop()
-		runningProxy = nil
-		fmt.Printf("%sProxy stopped.%s\n", harness.Green, harness.Reset)
-	} else {
-		fmt.Printf("%sNo proxy running.%s\n", harness.Dim, harness.Reset)
+func proxyStop(label string) {
+	if label == "" {
+		for key, srv := range runningProxies {
+			srv.Stop()
+			delete(runningProxies, key)
+		}
+		fmt.Printf("%sAll proxies stopped.%s\n", harness.Green, harness.Reset)
+		return
 	}
+	for key, srv := range runningProxies {
+		if strings.HasSuffix(key, "/"+label) {
+			srv.Stop()
+			delete(runningProxies, key)
+			fmt.Printf("%sProxy %s stopped.%s\n", harness.Green, label, harness.Reset)
+			return
+		}
+	}
+	fmt.Printf("%sNo proxy with label %s.%s\n", harness.Dim, label, harness.Reset)
 }
 
-func proxyStatus() {
-	if runningProxy != nil {
-		fmt.Printf("%sproxy running — data port %s%d%s\n", harness.Green, harness.Cyan, runningProxy.DataPort(), harness.Reset)
-	} else {
-		fmt.Printf("%sproxy not running%s\n", harness.Dim, harness.Reset)
+func proxyStatus(label string) {
+	if len(runningProxies) == 0 {
+		fmt.Printf("%sno proxies running%s\n", harness.Dim, harness.Reset)
+		return
+	}
+	for key, srv := range runningProxies {
+		parts := strings.SplitN(key, "/", 2)
+		if label != "" && parts[1] != label {
+			continue
+		}
+		fmt.Printf("%s%s %s%s — proxy %s%d%s data %s%d%s\n",
+			harness.Green, parts[0], harness.Cyan, parts[1],
+			harness.Cyan, srv.Port(), harness.Reset,
+			harness.Cyan, srv.DataPort(), harness.Reset)
 	}
 }

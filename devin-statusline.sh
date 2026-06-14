@@ -1,20 +1,28 @@
 #!/usr/bin/env bash
 # Devin CLI Statusline — fetches live data from the built-in proxy.
-# The proxy must be running: ./claude-statusline proxy start devin
+# Usage: ./devin-statusline.sh [label]
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 STATUSLINE="${DIR}/claude-statusline"
-DATA_PORT="${1:-${CLAUDE_STATUSLINE_DATA_PORT:-0}}"
+LABEL="${1:-}"
 
-if [[ "$DATA_PORT" -gt 0 ]]; then
-    curl -s "http://127.0.0.1:${DATA_PORT}/data" | "$STATUSLINE"
-elif [[ -f /tmp/claude-statusline-devin-data.port ]]; then
-    PORT=$(cat /tmp/claude-statusline-devin-data.port)
-    curl -s "http://127.0.0.1:${PORT}/data" | "$STATUSLINE"
-elif [[ -f /tmp/devin_live.json ]]; then
-    cat /tmp/devin_live.json | "$STATUSLINE"
+if [[ -n "$LABEL" ]]; then
+    PORT_FILE="/tmp/claude-statusline-devin-${LABEL}.port"
+    if [[ -f "$PORT_FILE" ]]; then
+        PORT=$(cat "$PORT_FILE")
+        curl -s "http://127.0.0.1:${PORT}/data" | "$STATUSLINE"
+    else
+        echo "devin: no proxy with label '${LABEL}'"
+    fi
 else
-    echo "devin: no live data (start proxy with: ./claude-statusline proxy start devin)"
+    # Find most recent port file
+    PORT_FILE=$(ls -t /tmp/claude-statusline-devin-*.port 2>/dev/null | head -1)
+    if [[ -n "$PORT_FILE" ]]; then
+        PORT=$(cat "$PORT_FILE")
+        curl -s "http://127.0.0.1:${PORT}/data" | "$STATUSLINE"
+    else
+        echo "devin: no live data (start proxy with: ./claude-statusline proxy start devin)"
+    fi
 fi
 echo
