@@ -44,12 +44,12 @@ func TestHandleChatMessageCompleteResponse(t *testing.T) {
 			data.Model, data.InputTokens, data.OutputTokens)
 	}
 
-	// Subagent: smaller input, no compaction — should be ignored.
+	// Subagent: same model, smaller input, no compaction — should be ignored.
 	subContent := []byte{
-		0x3A, 0x0E,
-		0x10, 0x9E, 0x01, // field 2 varint 158 (sum in+out = 49+109)
+		0x3A, 0x0B,
+		0x10, 0x9E, 0x01, // field 2 varint 158
 		0x18, 0x6D, // field 3 varint 109
-		0x4A, 0x0D, 's', 'w', 'e', '-', '1', '-', '6', '-', 'f', 'a', 's', 't',
+		0x4A, 0x07, 's', 'w', 'e', '-', '1', '-', '6', // same model as main
 	}
 	subStats := []byte{
 		0xE2, 0x01, 0x2F, // field 28, length 47

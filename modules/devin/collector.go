@@ -90,8 +90,8 @@ func (c *Collector) handleChatMessage(data []byte) {
 		return
 	}
 
-	// Subagent heuristic: smaller input than current, and no compaction preceded it.
-	if sit+sot < c.data.InputTokens && !c.justCompacted {
+	// Subagent heuristic: same model, smaller input, no compaction — skip.
+	if model == c.data.Model && sit+sot < c.data.InputTokens && !c.justCompacted {
 		return
 	}
 
