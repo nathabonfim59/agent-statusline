@@ -368,11 +368,80 @@ func dumpMessages(msgs [][]byte) {
 		it, ot := extractTokens(msg)
 		sit, sot := extractUsageStats(msg)
 		hasStats := sit > 0 || sot > 0
-		fields := topLevelFields(msg)
+		fields := dumpFields(msg)
 
-		fmt.Fprintf(os.Stderr, "[devin] msg[%d] session=%s model=%s tokens(in=%d out=%d) stats(in=%d out=%d) hasStats=%v fields=%v\n",
-			i, sid, model, it, ot, sit, sot, hasStats, fields)
+		fmt.Fprintf(os.Stderr, "[devin] msg[%d] session=%s model=%s tokens(in=%d out=%d) stats(in=%d out=%d) hasStats=%v\n",
+			i, sid, model, it, ot, sit, sot, hasStats)
+		for _, f := range fields {
+			fmt.Fprintf(os.Stderr, "  %s\n", f)
+		}
 	}
+}
+
+func dumpFields(msg []byte) []string {
+	var out []string
+	pos := 0
+	for pos < len(msg) {
+		tag, vb := readVarint(msg, pos)
+		if vb == 0 {
+			break
+		}
+		pos += vb
+		fn := tag >> 3
+		wt := tag & 0x7
+		switch wt {
+		case 0:
+			val, vv := readVarint(msg, pos)
+			pos += vv
+			out = append(out, fmt.Sprintf("field=%d varint=%d", fn, val))
+		case 1:
+			if pos+8 <= len(msg) {
+				val := binary.LittleEndian.Uint64(msg[pos : pos+8])
+				pos += 8
+				out = append(out, fmt.Sprintf("field=%d fixed64=%d", fn, val))
+			} else {
+				pos = len(msg)
+			}
+		case 2:
+			length, lb := readVarint(msg, pos)
+			pos += lb
+			if pos+length <= len(msg) {
+				sub := msg[pos : pos+length]
+				pos += length
+				subFields := dumpFields(sub)
+				if len(subFields) == 0 {
+					out = append(out, fmt.Sprintf("field=%d bytes=%d raw=%q", fn, length, truncate(sub, 60)))
+				} else {
+					out = append(out, fmt.Sprintf("field=%d message(%d){", fn, length))
+					for _, sf := range subFields {
+						out = append(out, "  "+sf)
+					}
+					out = append(out, "}")
+				}
+			} else {
+				pos = len(msg)
+			}
+		case 5:
+			if pos+4 <= len(msg) {
+				val := math.Float32frombits(binary.LittleEndian.Uint32(msg[pos : pos+4]))
+				pos += 4
+				out = append(out, fmt.Sprintf("field=%d fixed32=%f", fn, val))
+			} else {
+				pos = len(msg)
+			}
+		default:
+			pos = len(msg)
+		}
+	}
+	return out
+}
+
+func truncate(b []byte, max int) string {
+	s := string(b)
+	if len(s) > max {
+		return s[:max] + "..."
+	}
+	return s
 }
 
 func topLevelFields(msg []byte) []int {
