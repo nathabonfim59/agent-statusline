@@ -35,6 +35,10 @@ type ProxyServer struct {
 }
 
 func Start(config harness.ProxyConfig) (*ProxyServer, error) {
+	if config.Collector != nil {
+		config.Collector.SetDebug(config.Debug)
+	}
+
 	certPEM, keyPEM, err := LoadOrGenerateCA()
 	if err != nil {
 		return nil, fmt.Errorf("load CA: %w", err)

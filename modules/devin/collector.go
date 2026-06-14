@@ -3,7 +3,9 @@ package devin
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math"
+	"os"
 	"sync"
 )
 
@@ -18,10 +20,17 @@ type Collector struct {
 	mu        sync.RWMutex
 	data      DevinData
 	sessionID string
+	debug     bool
 }
 
 func NewCollector() *Collector {
 	return &Collector{}
+}
+
+func (c *Collector) SetDebug(on bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.debug = on
 }
 
 func (c *Collector) HandleResponse(host, path, contentType string, body []byte) {
@@ -52,6 +61,10 @@ func (c *Collector) handleChatMessage(data []byte) {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.debug {
+		dumpMessages(msgs)
+	}
 
 	// Only track messages from the main session — subagent responses don't
 	// carry the Token Usage stats block (field 28).
@@ -347,6 +360,49 @@ func parseStatValue(data []byte) int {
 		}
 	}
 	return 0
+}
+
+func dumpMessages(msgs [][]byte) {
+	for i, msg := range msgs {
+		sid := extractSessionID(msg)
+		model := extractModel(msg)
+		it, ot := extractTokens(msg)
+		sit, sot := extractUsageStats(msg)
+		hasStats := sit > 0 || sot > 0
+		fields := topLevelFields(msg)
+
+		fmt.Fprintf(os.Stderr, "[devin] msg[%d] session=%s model=%s tokens(in=%d out=%d) stats(in=%d out=%d) hasStats=%v fields=%v\n",
+			i, sid, model, it, ot, sit, sot, hasStats, fields)
+	}
+}
+
+func topLevelFields(msg []byte) []int {
+	var fields []int
+	pos := 0
+	for pos < len(msg) {
+		tag, vb := readVarint(msg, pos)
+		if vb == 0 {
+			break
+		}
+		pos += vb
+		fn := tag >> 3
+		wt := tag & 0x7
+		fields = append(fields, fn)
+		if wt == 0 {
+			_, vv := readVarint(msg, pos)
+			pos += vv
+		} else if wt == 1 {
+			pos += 8
+		} else if wt == 2 {
+			length, lb := readVarint(msg, pos)
+			pos += lb + length
+		} else if wt == 5 {
+			pos += 4
+		} else {
+			break
+		}
+	}
+	return fields
 }
 
 func extractSessionID(msg []byte) string {

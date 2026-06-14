@@ -160,13 +160,15 @@ func proxyCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			label, _ := cmd.Flags().GetString("label")
+			debug, _ := cmd.Flags().GetBool("debug")
 			if label == "" {
 				label = randomName()
 			}
-			proxyStart(args[0], label)
+			proxyStart(args[0], label, debug)
 		},
 	}
 	startCmd.Flags().StringP("label", "l", "", "label for this proxy instance (random if not set)")
+	startCmd.Flags().BoolP("debug", "d", false, "dump parsed message fields to stderr")
 
 	stopCmd := &cobra.Command{
 		Use:   "stop [label]",
@@ -336,7 +338,7 @@ func portFilePath(harness, label string) string {
 	return fmt.Sprintf("/tmp/claude-statusline-%s-%s.port", harness, label)
 }
 
-func proxyStart(harnessName, label string) {
+func proxyStart(harnessName, label string, debug bool) {
 	var h harness.Harness
 	switch harnessName {
 	case "devin":
@@ -355,6 +357,7 @@ func proxyStart(harnessName, label string) {
 		fmt.Fprintf(os.Stderr, "%sharness %s does not support proxy%s\n", harness.Red, harnessName, harness.Reset)
 		os.Exit(1)
 	}
+	cfg.Debug = debug
 
 	srv, err := proxy.Start(*cfg)
 	if err != nil {
