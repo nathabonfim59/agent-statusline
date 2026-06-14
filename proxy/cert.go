@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/nathabonfim59/agent-statusline/harness"
 )
 
 func certDir() string {
@@ -118,8 +120,8 @@ func InstallCA() error {
 		}
 	}
 
-	fmt.Printf("CA certificate: %s\n\n", certPath)
-	fmt.Println("To trust this certificate, run:\n")
+	fmt.Printf("CA certificate: %s%s%s\n\n", harness.Cyan, certPath, harness.Reset)
+	fmt.Printf("To trust this certificate, run:\n\n")
 
 	var cmds []string
 
@@ -171,7 +173,7 @@ func InstallCA() error {
 	}
 
 	for _, c := range cmds {
-		fmt.Println(c)
+		fmt.Printf("%s%s%s\n", harness.Green, c, harness.Reset)
 	}
 
 	return nil

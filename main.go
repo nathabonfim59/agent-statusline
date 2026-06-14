@@ -207,31 +207,31 @@ func proxyStart(harnessName string) {
 	case "claude_code":
 		h = claude_code.New()
 	default:
-		fmt.Fprintf(os.Stderr, "unknown harness: %s\n", harnessName)
+		fmt.Fprintf(os.Stderr, "%sunknown harness: %s%s\n", harness.Red, harnessName, harness.Reset)
 		os.Exit(1)
 	}
 
 	cfg := h.ProxyConfig()
 	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "harness %s does not support proxy\n", harnessName)
+		fmt.Fprintf(os.Stderr, "%sharness %s does not support proxy%s\n", harness.Red, harnessName, harness.Reset)
 		os.Exit(1)
 	}
 
 	srv, err := proxy.Start(*cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to start proxy: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%sfailed to start proxy: %v%s\n", harness.Red, err, harness.Reset)
 		os.Exit(1)
 	}
 	runningProxy = srv
 
 	os.WriteFile("/tmp/claude-statusline-devin-data.port", []byte(fmt.Sprintf("%d", srv.DataPort())), 0o644)
 
-	fmt.Printf("Proxy started for %s\n", harnessName)
-	fmt.Printf("  Proxy port: %d\n", srv.Port())
-	fmt.Printf("  Data port:  %d\n", srv.DataPort())
-	fmt.Printf("  Set: export HTTP_PROXY=http://127.0.0.1:%d\n", srv.Port())
-	fmt.Printf("  Set: export HTTPS_PROXY=http://127.0.0.1:%d\n", srv.Port())
-	fmt.Printf("  Data URL: http://127.0.0.1:%d/data\n", srv.DataPort())
+	fmt.Printf("%sProxy started for %s%s%s\n", harness.Green, harness.Bold, harnessName, harness.Reset)
+	fmt.Printf("  Proxy port: %s%d%s\n", harness.Cyan, srv.Port(), harness.Reset)
+	fmt.Printf("  Data port:  %s%d%s\n", harness.Cyan, srv.DataPort(), harness.Reset)
+	fmt.Printf("  Set: %sexport HTTP_PROXY=http://127.0.0.1:%d%s\n", harness.Green, srv.Port(), harness.Reset)
+	fmt.Printf("  Set: %sexport HTTPS_PROXY=http://127.0.0.1:%d%s\n", harness.Green, srv.Port(), harness.Reset)
+	fmt.Printf("  Data URL: %shttp://127.0.0.1:%d/data%s\n", harness.Dim, srv.DataPort(), harness.Reset)
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
@@ -246,16 +246,16 @@ func proxyStop() {
 	if runningProxy != nil {
 		runningProxy.Stop()
 		runningProxy = nil
-		fmt.Println("Proxy stopped.")
+		fmt.Printf("%sProxy stopped.%s\n", harness.Green, harness.Reset)
 	} else {
-		fmt.Println("No proxy running.")
+		fmt.Printf("%sNo proxy running.%s\n", harness.Dim, harness.Reset)
 	}
 }
 
 func proxyStatus() {
 	if runningProxy != nil {
-		fmt.Printf(`{"status":"running","data_port":%d}`+"\n", runningProxy.DataPort())
+		fmt.Printf("%sproxy running — data port %s%d%s\n", harness.Green, harness.Cyan, runningProxy.DataPort(), harness.Reset)
 	} else {
-		fmt.Println(`{"status":"not running"}`)
+		fmt.Printf("%sproxy not running%s\n", harness.Dim, harness.Reset)
 	}
 }
