@@ -52,18 +52,17 @@ func (c *Collector) handleChatMessage(data []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Always track the latest model and tokens — Devin auto-compacts on model
-	// switch, so the most recent message always has the correct values.
+	// Only track messages from the main session — subagent responses don't
+	// carry the Token Usage stats block (field 28).
 	model := extractModel(msgs[0])
-	if model != "" {
-		c.data.Model = model
-	}
 
 	var bestIt, bestOt int
+	hasStats := false
 	for _, msg := range msgs {
 		it, ot := extractTokens(msg)
 		if sit, sot := extractUsageStats(msg); sit > 0 || sot > 0 {
 			it, ot = sit, sot
+			hasStats = true
 		}
 		if it > bestIt {
 			bestIt = it
@@ -71,6 +70,14 @@ func (c *Collector) handleChatMessage(data []byte) {
 		if ot > bestOt {
 			bestOt = ot
 		}
+	}
+
+	if !hasStats {
+		return
+	}
+
+	if model != "" {
+		c.data.Model = model
 	}
 	if bestIt > 0 || bestOt > 0 {
 		c.data.InputTokens = bestIt
