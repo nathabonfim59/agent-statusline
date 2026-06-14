@@ -11,6 +11,6 @@ func renderTokens(h *Harness, t harness.Theme) string {
 		return ""
 	}
 	return fmt.Sprintf("%s%s in%s  %s%s out%s",
-		harness.Dim, harness.HumanTokens(h.live.InputTokens), harness.Reset,
-		harness.Dim, harness.HumanTokens(h.live.OutputTokens), harness.Reset)
+		harness.Dim, humanTokensCeil(h.live.InputTokens), harness.Reset,
+		harness.Dim, humanTokensCeil(h.live.OutputTokens), harness.Reset)
 }
