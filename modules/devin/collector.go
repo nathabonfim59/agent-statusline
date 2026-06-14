@@ -52,11 +52,13 @@ func (c *Collector) handleChatMessage(data []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Extract model from first message — only set once, don't let subagents overwrite
-	if c.data.Model == "" {
-		if model := extractModel(msgs[0]); model != "" {
-			c.data.Model = model
-		}
+	// Always track the latest model — whatever Devin is currently running.
+	model := extractModel(msgs[0])
+	if model != "" && model != c.data.Model {
+		c.data.Model = model
+		// Model changed — reset tokens so old counts don't skew the percentage.
+		c.data.InputTokens = 0
+		c.data.OutputTokens = 0
 	}
 
 	// Extract tokens from tail messages — take the highest (cumulative total)
