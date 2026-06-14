@@ -17,14 +17,18 @@ type DevinData struct {
 }
 
 type Collector struct {
-	mu    sync.RWMutex
-	data  DevinData
-	debug bool
+	mu            sync.RWMutex
+	data          DevinData
+	localSession  string
+	justCompacted bool
+	debug         bool
 }
 
 func NewCollector() *Collector {
 	return &Collector{}
 }
+
+var loadLocalDataForCollector = loadLocalData
 
 func (c *Collector) SetDebug(on bool) {
 	c.mu.Lock()
@@ -52,6 +56,22 @@ func (c *Collector) GetData() interface{} {
 	return c.data
 }
 
+func (c *Collector) syncLocalSessionLocked() {
+	local, _ := loadLocalDataForCollector()
+	if local == nil || local.SessionID == "" {
+		return
+	}
+	if c.localSession != "" && c.localSession != local.SessionID {
+		quota := c.data.Quota
+		c.data = DevinData{Model: local.Model, Quota: quota}
+		c.justCompacted = false
+	}
+	c.localSession = local.SessionID
+	if c.data.Model == "" && local.Model != "" {
+		c.data.Model = local.Model
+	}
+}
+
 func (c *Collector) handleChatMessage(data []byte) {
 	msgs := parseEnvelopes(data)
 	if len(msgs) < 3 {
@@ -64,6 +84,7 @@ func (c *Collector) handleChatMessage(data []byte) {
 	if c.debug {
 		dumpMessages(msgs)
 	}
+	c.syncLocalSessionLocked()
 
 	// Only process complete responses — the last message is the [15] end marker.
 	if !isEndMarker(msgs[len(msgs)-1]) {
@@ -75,27 +96,34 @@ func (c *Collector) handleChatMessage(data []byte) {
 	statsMsg := msgs[len(msgs)-2]
 
 	model := extractModel(contentMsg)
-	sit, sot := extractUsageStats(statsMsg)
-	if sit == 0 && sot == 0 {
+	sit, sot, cached := extractUsageStats(statsMsg)
+	if sit == 0 && sot == 0 && cached == 0 {
 		return
 	}
+	total := sit + sot + cached
 
-	// Compactor: update tokens only, keep current model.
 	if model == "compactor" {
-		c.data.InputTokens = sit + sot
+		c.data.InputTokens = total
 		c.data.OutputTokens = sot
+		c.justCompacted = true
 		return
 	}
 
-	// Subagent: content message carries top-level field 5 (StopReason).
-	if hasTopLevelField(contentMsg, 5) {
-		return
+	if total < c.data.InputTokens && !c.justCompacted {
+		localModel := ""
+		if local, _ := loadLocalDataForCollector(); local != nil {
+			localModel = local.Model
+		}
+		if model == c.data.Model || (localModel != "" && model != localModel) {
+			return
+		}
 	}
 
+	c.justCompacted = false
 	if model != "" {
 		c.data.Model = model
 	}
-	c.data.InputTokens = sit + sot
+	c.data.InputTokens = total
 	c.data.OutputTokens = sot
 }
 
@@ -204,7 +232,7 @@ func extractTokens(msg []byte) (inputTokens, outputTokens int) {
 	return
 }
 
-func extractUsageStats(msg []byte) (inputTokens, outputTokens int) {
+func extractUsageStats(msg []byte) (inputTokens, outputTokens, cachedInputTokens int) {
 	pos := 0
 	for pos < len(msg) {
 		tag, vb := readVarint(msg, pos)
@@ -221,12 +249,15 @@ func extractUsageStats(msg []byte) (inputTokens, outputTokens int) {
 				break
 			}
 			if fn == 28 {
-				it, ot := parseStatsBlock(msg[pos : pos+length])
+				it, ot, cached := parseStatsBlock(msg[pos : pos+length])
 				if it > inputTokens {
 					inputTokens = it
 				}
 				if ot > outputTokens {
 					outputTokens = ot
+				}
+				if cached > cachedInputTokens {
+					cachedInputTokens = cached
 				}
 			}
 			pos += length
@@ -244,7 +275,7 @@ func extractUsageStats(msg []byte) (inputTokens, outputTokens int) {
 	return
 }
 
-func parseStatsBlock(data []byte) (inputTokens, outputTokens int) {
+func parseStatsBlock(data []byte) (inputTokens, outputTokens, cachedInputTokens int) {
 	pos := 0
 	for pos < len(data) {
 		tag, vb := readVarint(data, pos)
@@ -266,6 +297,8 @@ func parseStatsBlock(data []byte) (inputTokens, outputTokens int) {
 					inputTokens = value
 				} else if key == "output_tokens" && value > outputTokens {
 					outputTokens = value
+				} else if key == "cached_input_tokens" && value > cachedInputTokens {
+					cachedInputTokens = value
 				}
 			}
 			pos += length
@@ -392,12 +425,12 @@ func dumpMessages(msgs [][]byte) {
 		sid := extractSessionID(msg)
 		model := extractModel(msg)
 		it, ot := extractTokens(msg)
-		sit, sot := extractUsageStats(msg)
-		hasStats := sit > 0 || sot > 0
+		sit, sot, cached := extractUsageStats(msg)
+		hasStats := sit > 0 || sot > 0 || cached > 0
 		fields := dumpFields(msg)
 
-		fmt.Fprintf(os.Stderr, "[devin] msg[%d] session=%s model=%s tokens(in=%d out=%d) stats(in=%d out=%d) hasStats=%v\n",
-			i, sid, model, it, ot, sit, sot, hasStats)
+		fmt.Fprintf(os.Stderr, "[devin] msg[%d] session=%s model=%s tokens(in=%d out=%d) stats(in=%d out=%d cached=%d) hasStats=%v\n",
+			i, sid, model, it, ot, sit, sot, cached, hasStats)
 		for _, f := range fields {
 			fmt.Fprintf(os.Stderr, "  %s\n", f)
 		}
