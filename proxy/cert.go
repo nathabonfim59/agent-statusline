@@ -17,7 +17,7 @@ import (
 
 func certDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "claude-statusline", "certs")
+	return filepath.Join(home, ".config", "agent-statusline", "certs")
 }
 
 func GenerateCA() (cert, key []byte, err error) {
@@ -29,8 +29,9 @@ func GenerateCA() (cert, key []byte, err error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName:   "claude-statusline CA",
-			Organization: []string{"claude-statusline"},
+			CommonName:         "agent-statusline CA",
+			Organization:       []string{"agent-statusline"},
+			OrganizationalUnit: []string{"https://github.com/nathabonfim59/agent-statusline"},
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(10 * 365 * 24 * time.Hour),
