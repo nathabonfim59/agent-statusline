@@ -3,17 +3,21 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
-"github.com/nathabonfim59/agent-statusline/harness"
-
-	_ "github.com/nathabonfim59/agent-statusline/claude_code"
-
-	_ "github.com/nathabonfim59/agent-statusline/modules/cursor"
-	_ "github.com/nathabonfim59/agent-statusline/modules/devin"
+	"github.com/nathabonfim59/agent-statusline/claude_code"
+	"github.com/nathabonfim59/agent-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/modules/cursor"
+	"github.com/nathabonfim59/agent-statusline/modules/devin"
+	"github.com/nathabonfim59/agent-statusline/proxy"
 )
+
+var runningProxy *proxy.ProxyServer
 
 func buildLine(order []string, blocks map[string]string, compact []string, tw int) string {
 	sep := harness.Dim + "|" + harness.Reset
@@ -63,9 +67,15 @@ func buildLine(order []string, blocks map[string]string, compact []string, tw in
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "init" {
-		runInit()
-		return
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "init":
+			runInit()
+			return
+		case "proxy":
+			runProxy(os.Args[2:])
+			return
+		}
 	}
 
 	cfg := loadConfig()
@@ -104,4 +114,100 @@ func main() {
 	line2 := buildLine(blockCfg.Line2, rendered, blockCfg.Compact, tw)
 
 	fmt.Printf("%s\n%s", line1, line2)
+}
+
+func runProxy(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: claude-statusline proxy <start|stop|install-ca|status> [harness]")
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "start":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: claude-statusline proxy start <harness>")
+			os.Exit(1)
+		}
+		proxyStart(args[1])
+	case "stop":
+		proxyStop()
+	case "install-ca":
+		if err := proxy.InstallCA(); err != nil {
+			fmt.Fprintf(os.Stderr, "install-ca: %v\n", err)
+			os.Exit(1)
+		}
+	case "status":
+		proxyStatus()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown proxy command: %s\n", args[0])
+		os.Exit(1)
+	}
+}
+
+func proxyStart(harnessName string) {
+	var h harness.Harness
+	switch harnessName {
+	case "devin":
+		h = devin.New()
+	case "cursor":
+		h = cursor.New()
+	case "claude_code":
+		h = claude_code.New()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown harness: %s\n", harnessName)
+		os.Exit(1)
+	}
+
+	cfg := h.ProxyConfig()
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "harness %s does not support proxy\n", harnessName)
+		os.Exit(1)
+	}
+
+	srv, err := proxy.Start(*cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to start proxy: %v\n", err)
+		os.Exit(1)
+	}
+	runningProxy = srv
+
+	// Write port file for shell scripts
+	os.WriteFile("/tmp/claude-statusline-devin-data.port", []byte(fmt.Sprintf("%d", srv.DataPort())), 0o644)
+
+	fmt.Printf("Proxy started for %s\n", harnessName)
+	fmt.Printf("  Proxy port: %d\n", srv.Port())
+	fmt.Printf("  Data port:  %d\n", srv.DataPort())
+	fmt.Printf("  Set: export HTTP_PROXY=http://127.0.0.1:%d\n", srv.Port())
+	fmt.Printf("  Set: export HTTPS_PROXY=http://127.0.0.1:%d\n", srv.Port())
+	fmt.Printf("  Data URL: http://127.0.0.1:%d/data\n", srv.DataPort())
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	<-sig
+
+	fmt.Fprintf(os.Stderr, "\nShutting down...\n")
+	srv.Stop()
+	os.Remove("/tmp/claude-statusline-devin-data.port")
+}
+
+func proxyStop() {
+	if runningProxy != nil {
+		runningProxy.Stop()
+		runningProxy = nil
+		fmt.Println("Proxy stopped.")
+	} else {
+		fmt.Println("No proxy running.")
+	}
+}
+
+func proxyStatus() {
+	if runningProxy != nil {
+		data, _ := json.MarshalIndent(map[string]interface{}{
+			"status": "running",
+			"port":   runningProxy.DataPort(),
+		}, "", "  ")
+		fmt.Println(string(data))
+	} else {
+		fmt.Println(`{"status": "not running"}`)
+	}
 }

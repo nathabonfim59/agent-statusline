@@ -79,6 +79,7 @@ func (h *Harness) TerminalWidth() int {
 	}
 	return harness.TerminalWidth()
 }
+func (h *Harness) ProxyConfig() *harness.ProxyConfig { return nil }
 
 func (h *Harness) CWD() string {
 	if h.in.CWD != "" {

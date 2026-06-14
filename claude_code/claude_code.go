@@ -73,6 +73,7 @@ func (h *Harness) CWD() string {
 }
 func (h *Harness) TerminalWidth() int  { return harness.TerminalWidth() }
 func (h *Harness) ContextPct() float64 { return h.in.ContextWindow.UsedPercentage }
+func (h *Harness) ProxyConfig() *harness.ProxyConfig { return nil }
 
 func (h *Harness) RenderBlock(name string, t harness.Theme, pct, warn, danger float64) string {
 	cwd := h.CWD()

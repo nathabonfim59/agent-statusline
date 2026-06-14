@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
-# Devin CLI Statusline — pipes /tmp/devin_live.json into claude-statusline.
-# The Go harness reads model configs + session info from disk directly.
-TOKEN_FILE="/tmp/devin_live.json"
+# Devin CLI Statusline — fetches live data from the built-in proxy.
+# The proxy must be running: claude-statusline proxy start devin
+# Accepts data port as argument or reads from pid file.
+DATA_PORT="${1:-${CLAUDE_STATUSLINE_DATA_PORT:-0}}"
 
-if [[ -f "$TOKEN_FILE" ]]; then
-    exec cat "$TOKEN_FILE" | claude-statusline
+if [[ "$DATA_PORT" -gt 0 ]]; then
+    exec curl -s "http://127.0.0.1:${DATA_PORT}/data" | claude-statusline
+elif [[ -f /tmp/claude-statusline-devin-data.port ]]; then
+    PORT=$(cat /tmp/claude-statusline-devin-data.port)
+    exec curl -s "http://127.0.0.1:${PORT}/data" | claude-statusline
+elif [[ -f /tmp/devin_live.json ]]; then
+    # Fallback: old mitmproxy format
+    exec cat /tmp/devin_live.json | claude-statusline
 else
-    echo "devin: no live data (start mitmproxy with devin_token_addon.py)"
+    echo "devin: no live data (start proxy with: claude-statusline proxy start devin)"
 fi

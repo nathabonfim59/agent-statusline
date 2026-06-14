@@ -35,6 +35,10 @@ func New() *Harness {
 func (h *Harness) Name() string       { return "devin" }
 func (h *Harness) ModelID() string    { return h.live.Model }
 func (h *Harness) TerminalWidth() int { return harness.TerminalWidth() }
+func (h *Harness) ProxyConfig() *harness.ProxyConfig {
+	cfg := DevinProxyConfig()
+	return &cfg
+}
 
 func (h *Harness) Parse(raw []byte) error {
 	if err := json.Unmarshal(raw, &h.live); err != nil {
