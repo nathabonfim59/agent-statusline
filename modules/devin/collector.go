@@ -51,9 +51,11 @@ func (c *Collector) handleChatMessage(data []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Extract model from first message
-	if model := extractModel(msgs[0]); model != "" {
-		c.data.Model = model
+	// Extract model from first message — only set once, don't let subagents overwrite
+	if c.data.Model == "" {
+		if model := extractModel(msgs[0]); model != "" {
+			c.data.Model = model
+		}
 	}
 
 	// Extract tokens from last messages
