@@ -26,18 +26,18 @@ func TestHandleChatMessageIgnoresSubagents(t *testing.T) {
 
 	c := NewCollector()
 
-	// Main session response with stats — should be captured.
+	// Main session response with stats — in+out summed as input.
 	c.handleChatMessage(connectStream([]byte{}, stats))
 	data := c.GetData().(DevinData)
-	if data.InputTokens != 16022 || data.OutputTokens != 478 {
-		t.Fatalf("main session: collector data = %d, %d; want 16022, 478", data.InputTokens, data.OutputTokens)
+	if data.InputTokens != 16500 || data.OutputTokens != 478 {
+		t.Fatalf("main session: collector data = %d, %d; want 16500, 478", data.InputTokens, data.OutputTokens)
 	}
 
 	// Subagent response without stats — should be ignored, data unchanged.
 	c.handleChatMessage(connectStream([]byte{}, []byte{0x3a, 0x04, 0x10, 0x31, 0x18, 0x3e}))
 	data = c.GetData().(DevinData)
-	if data.InputTokens != 16022 || data.OutputTokens != 478 {
-		t.Fatalf("after subagent: collector data = %d, %d; want 16022, 478", data.InputTokens, data.OutputTokens)
+	if data.InputTokens != 16500 || data.OutputTokens != 478 {
+		t.Fatalf("after subagent: collector data = %d, %d; want 16500, 478", data.InputTokens, data.OutputTokens)
 	}
 }
 

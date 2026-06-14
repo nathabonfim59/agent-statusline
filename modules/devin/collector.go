@@ -90,18 +90,22 @@ func (c *Collector) handleChatMessage(data []byte) {
 		return
 	}
 
-	// Track the most recent session that sent stats — auto-selection and
-	// /model switches create new sessions, so we follow the latest one.
+	// Follow the latest session that sent stats.
 	if sid != "" {
+		if sid != c.sessionID {
+			c.data.InputTokens = 0
+		}
 		c.sessionID = sid
 	}
+
+	// The stats trailer has an empty model — use the previous model.
 	if model != "" {
 		c.data.Model = model
 	}
-	if bestIt > 0 || bestOt > 0 {
-		c.data.InputTokens = bestIt
-		c.data.OutputTokens = bestOt
-	}
+
+	// Sum in+out: output tokens become input context in the next turn.
+	c.data.InputTokens += bestIt + bestOt
+	c.data.OutputTokens = bestOt
 }
 
 func (c *Collector) handleUserStatus(data []byte) {
