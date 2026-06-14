@@ -3,21 +3,85 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
+	"github.com/spf13/cobra"
+
 	"github.com/nathabonfim59/agent-statusline/claude_code"
 	"github.com/nathabonfim59/agent-statusline/harness"
 	"github.com/nathabonfim59/agent-statusline/modules/cursor"
 	"github.com/nathabonfim59/agent-statusline/modules/devin"
 	"github.com/nathabonfim59/agent-statusline/proxy"
+
+	// Register harness detectors via init()
+	_ "github.com/nathabonfim59/agent-statusline/claude_code"
+	_ "github.com/nathabonfim59/agent-statusline/modules/cursor"
+	_ "github.com/nathabonfim59/agent-statusline/modules/devin"
 )
 
 var runningProxy *proxy.ProxyServer
+
+func main() {
+	root := &cobra.Command{
+		Use:   "claude-statusline",
+		Short: "Render status bars for AI coding agents",
+		Long: `claude-statusline reads session data from stdin and renders a colored
+two-line ANSI status bar showing model info, token usage, cost, and more.
+
+Supported agents: Claude Code, Cursor, Devin CLI`,
+		Run: runFilter,
+	}
+
+	root.AddCommand(initCmd())
+	root.AddCommand(proxyCmd())
+
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func runFilter(cmd *cobra.Command, args []string) {
+	cfg := loadConfig()
+	t := loadTheme(cfg.Theme)
+
+	var buf bytes.Buffer
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	for scanner.Scan() {
+		buf.Write(scanner.Bytes())
+	}
+
+	h := harness.Detect(buf.Bytes())
+	if h == nil {
+		os.Exit(1)
+	}
+
+	warn, danger := resolveThresholds(cfg, h.ModelID())
+	blockCfg := resolveBlocks(cfg, h.Name())
+	pct := h.ContextPct()
+	tw := h.TerminalWidth()
+
+	rendered := make(map[string]string)
+	for _, list := range [][]string{blockCfg.Line1, blockCfg.Line2} {
+		for _, name := range list {
+			if _, ok := rendered[name]; ok {
+				continue
+			}
+			if s := h.RenderBlock(name, t, pct, warn, danger); s != "" {
+				rendered[name] = s
+			}
+		}
+	}
+
+	line1 := buildLine(blockCfg.Line1, rendered, blockCfg.Compact, tw)
+	line2 := buildLine(blockCfg.Line2, rendered, blockCfg.Compact, tw)
+
+	fmt.Printf("%s\n%s", line1, line2)
+}
 
 func buildLine(order []string, blocks map[string]string, compact []string, tw int) string {
 	sep := harness.Dim + "|" + harness.Reset
@@ -66,82 +130,59 @@ func buildLine(order []string, blocks map[string]string, compact []string, tw in
 	return strings.Join(fit, " "+sep+" ")
 }
 
-func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "init":
+func initCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "init",
+		Short: "Initialize config directory with defaults",
+		Run: func(cmd *cobra.Command, args []string) {
 			runInit()
-			return
-		case "proxy":
-			runProxy(os.Args[2:])
-			return
-		}
+		},
 	}
-
-	cfg := loadConfig()
-	t := loadTheme(cfg.Theme)
-
-	var buf bytes.Buffer
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
-	for scanner.Scan() {
-		buf.Write(scanner.Bytes())
-	}
-
-	h := harness.Detect(buf.Bytes())
-	if h == nil {
-		os.Exit(1)
-	}
-
-	warn, danger := resolveThresholds(cfg, h.ModelID())
-	blockCfg := resolveBlocks(cfg, h.Name())
-	pct := h.ContextPct()
-	tw := h.TerminalWidth()
-
-	rendered := make(map[string]string)
-	for _, list := range [][]string{blockCfg.Line1, blockCfg.Line2} {
-		for _, name := range list {
-			if _, ok := rendered[name]; ok {
-				continue
-			}
-			if s := h.RenderBlock(name, t, pct, warn, danger); s != "" {
-				rendered[name] = s
-			}
-		}
-	}
-
-	line1 := buildLine(blockCfg.Line1, rendered, blockCfg.Compact, tw)
-	line2 := buildLine(blockCfg.Line2, rendered, blockCfg.Compact, tw)
-
-	fmt.Printf("%s\n%s", line1, line2)
 }
 
-func runProxy(args []string) {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: claude-statusline proxy <start|stop|install-ca|status> [harness]")
-		os.Exit(1)
+func proxyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "proxy",
+		Short: "Manage HTTPS proxy for intercepting agent traffic",
 	}
 
-	switch args[0] {
-	case "start":
-		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: claude-statusline proxy start <harness>")
-			os.Exit(1)
-		}
-		proxyStart(args[1])
-	case "stop":
-		proxyStop()
-	case "install-ca":
-		if err := proxy.InstallCA(); err != nil {
-			fmt.Fprintf(os.Stderr, "install-ca: %v\n", err)
-			os.Exit(1)
-		}
-	case "status":
-		proxyStatus()
-	default:
-		fmt.Fprintf(os.Stderr, "unknown proxy command: %s\n", args[0])
-		os.Exit(1)
-	}
+	cmd.AddCommand(&cobra.Command{
+		Use:   "start <harness>",
+		Short: "Start proxy for a harness (devin, cursor, claude_code)",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			proxyStart(args[0])
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "stop",
+		Short: "Stop the running proxy",
+		Run: func(cmd *cobra.Command, args []string) {
+			proxyStop()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "install-ca",
+		Short: "Show instructions to install the CA certificate",
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := proxy.InstallCA(); err != nil {
+				fmt.Fprintf(os.Stderr, "install-ca: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "status",
+		Short: "Show proxy status and ports",
+		Run: func(cmd *cobra.Command, args []string) {
+			proxyStatus()
+		},
+	})
+
+	return cmd
 }
 
 func proxyStart(harnessName string) {
@@ -171,7 +212,6 @@ func proxyStart(harnessName string) {
 	}
 	runningProxy = srv
 
-	// Write port file for shell scripts
 	os.WriteFile("/tmp/claude-statusline-devin-data.port", []byte(fmt.Sprintf("%d", srv.DataPort())), 0o644)
 
 	fmt.Printf("Proxy started for %s\n", harnessName)
@@ -202,12 +242,8 @@ func proxyStop() {
 
 func proxyStatus() {
 	if runningProxy != nil {
-		data, _ := json.MarshalIndent(map[string]interface{}{
-			"status": "running",
-			"port":   runningProxy.DataPort(),
-		}, "", "  ")
-		fmt.Println(string(data))
+		fmt.Printf(`{"status":"running","data_port":%d}`+"\n", runningProxy.DataPort())
 	} else {
-		fmt.Println(`{"status": "not running"}`)
+		fmt.Println(`{"status":"not running"}`)
 	}
 }
