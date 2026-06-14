@@ -53,6 +53,7 @@ type Config struct {
 	Blocks     BlockConfig                `yaml:"blocks"`
 	ClaudeCode HarnessConfig              `yaml:"claude_code"`
 	Cursor     HarnessConfig              `yaml:"cursor"`
+	Devin      HarnessConfig              `yaml:"devin"`
 }
 
 var builtinDefault = ThemeFile{
@@ -133,6 +134,8 @@ func resolveBlocks(cfg Config, harnessName string) BlockConfig {
 		hc = cfg.ClaudeCode
 	case "cursor":
 		hc = cfg.Cursor
+	case "devin":
+		hc = cfg.Devin
 	default:
 		return cfg.Blocks
 	}
@@ -262,6 +265,8 @@ func getHarnessConfig(cfg Config, name string) *HarnessConfig {
 		return &cfg.ClaudeCode
 	case "cursor":
 		return &cfg.Cursor
+	case "devin":
+		return &cfg.Devin
 	}
 	return nil
 }

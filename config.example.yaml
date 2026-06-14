@@ -23,10 +23,21 @@ thresholds:
 # Available blocks for Cursor:
 #   line1: model, git, project, version, vim, worktree, session, autorun, output_style
 #   line2: bar, percent, tokens, hash
+#
+# Available blocks for Devin:
+#   line1: model, git, project
+#   line2: bar, percent, tokens, quota, hash
 blocks:
   line1: [model, git, project, version]
   line2: [bar, percent, cost, time, tokens, rates, diff, hash]
   compact: [model, bar, percent, cost, git, project, hash, time, tokens, rates, diff, version]
+
+# --- Devin harness-specific override ---
+#devin:
+#  extends: true
+#  blocks:
+#    line1: [model, git, project]
+#    line2: [bar, percent, tokens, quota, hash]
 
 # --- Claude Code harness-specific override ---
 # extends: true  — start from global blocks, override below
