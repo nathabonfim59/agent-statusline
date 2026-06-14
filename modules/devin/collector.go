@@ -17,11 +17,9 @@ type DevinData struct {
 }
 
 type Collector struct {
-	mu            sync.RWMutex
-	data          DevinData
-	sessionID     string
-	justCompacted bool
-	debug         bool
+	mu    sync.RWMutex
+	data  DevinData
+	debug bool
 }
 
 func NewCollector() *Collector {
@@ -86,16 +84,14 @@ func (c *Collector) handleChatMessage(data []byte) {
 	if model == "compactor" {
 		c.data.InputTokens = sit + sot
 		c.data.OutputTokens = sot
-		c.justCompacted = true
 		return
 	}
 
-	// Subagent heuristic: same model, smaller input, no compaction — skip.
-	if model == c.data.Model && sit+sot < c.data.InputTokens && !c.justCompacted {
+	// Subagent: content message carries top-level field 5 (StopReason).
+	if hasTopLevelField(contentMsg, 5) {
 		return
 	}
 
-	c.justCompacted = false
 	if model != "" {
 		c.data.Model = model
 	}
@@ -354,6 +350,36 @@ func parseStatValue(data []byte) int {
 		}
 	}
 	return 0
+}
+
+func hasTopLevelField(msg []byte, targetField int) bool {
+	pos := 0
+	for pos < len(msg) {
+		tag, vb := readVarint(msg, pos)
+		if vb == 0 {
+			break
+		}
+		pos += vb
+		fn := tag >> 3
+		wt := tag & 0x7
+		if fn == targetField {
+			return true
+		}
+		if wt == 0 {
+			_, vv := readVarint(msg, pos)
+			pos += vv
+		} else if wt == 1 {
+			pos += 8
+		} else if wt == 2 {
+			length, lb := readVarint(msg, pos)
+			pos += lb + length
+		} else if wt == 5 {
+			pos += 4
+		} else {
+			break
+		}
+	}
+	return false
 }
 
 func isEndMarker(msg []byte) bool {

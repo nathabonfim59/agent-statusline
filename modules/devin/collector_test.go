@@ -26,8 +26,8 @@ func TestHandleChatMessageCompleteResponse(t *testing.T) {
 
 	// Content message: model=swe-1-6, input=16022, output=478 (field 7)
 	contentMsg := []byte{
-		0x3A, 0x0E, // field 7, length 14
-		0x10, 0x96, 0xFA, 0x01, // field 2 varint 16022
+		0x3A, 0x0C, // field 7, length 12
+		0x10, 0x96, 0x7D, // field 2 varint 16022
 		0x18, 0xDE, 0x03, // field 3 varint 478
 		0x4A, 0x07, 's', 'w', 'e', '-', '1', '-', '6', // field 9 "swe-1-6"
 	}
@@ -44,12 +44,13 @@ func TestHandleChatMessageCompleteResponse(t *testing.T) {
 			data.Model, data.InputTokens, data.OutputTokens)
 	}
 
-	// Subagent: same model, smaller input, no compaction — should be ignored.
+	// Subagent: content message carries top-level field 5 — should be ignored.
 	subContent := []byte{
-		0x3A, 0x0B,
+		0x28, 0x02, // field 5 varint=2 (StopReason)
+		0x3A, 0x0D, // field 7, length 13
 		0x10, 0x9E, 0x01, // field 2 varint 158
 		0x18, 0x6D, // field 3 varint 109
-		0x4A, 0x07, 's', 'w', 'e', '-', '1', '-', '6', // same model as main
+		0x4A, 0x07, 's', 'w', 'e', '-', '1', '-', '6',
 	}
 	subStats := []byte{
 		0xE2, 0x01, 0x2F, // field 28, length 47
@@ -67,7 +68,7 @@ func TestHandleChatMessageCompleteResponse(t *testing.T) {
 			data.Model, data.InputTokens)
 	}
 
-	// Compaction: should update tokens, keep model, set justCompacted flag.
+	// Compaction: should update tokens, keep model.
 	compContent := []byte{
 		0x3A, 0x0B,
 		0x10, 0xA2, 0x28, // field 2 varint 5154 (4105+351+698 = sum)
@@ -87,29 +88,6 @@ func TestHandleChatMessageCompleteResponse(t *testing.T) {
 	data = c.GetData().(DevinData)
 	if data.Model != "swe-1-6" || data.InputTokens != 4456 {
 		t.Fatalf("after compaction: model=%s input=%d; want swe-1-6 4456",
-			data.Model, data.InputTokens)
-	}
-
-	// Post-compaction model switch: smaller input OK because justCompacted.
-	postContent := []byte{
-		0x3A, 0x0B,
-		0x10, 0xA0, 0x14, // field 2 varint 2592 (2050+53+489)
-		0x18, 0xD3, 0x03, // field 3 varint 467
-		0x4A, 0x09, 'k', 'i', 'm', 'i', '-', 'k', '2', '-', '6',
-	}
-	postStats := []byte{
-		0xE2, 0x01, 0x2F,
-		0x12, 0x15,
-		0x22, 0x05, 0x15, 0x00, 0x20, 0x00, 0x45, // fixed32 2050.0
-		0x2A, 0x0C, 'i', 'n', 'p', 'u', 't', '_', 't', 'o', 'k', 'e', 'n', 's',
-		0x12, 0x16,
-		0x22, 0x05, 0x15, 0x00, 0x80, 0xE9, 0x43, // fixed32 467.0
-		0x2A, 0x0D, 'o', 'u', 't', 'p', 'u', 't', '_', 't', 'o', 'k', 'e', 'n', 's',
-	}
-	c.handleChatMessage(connectStream(postContent, postStats, endMarker))
-	data = c.GetData().(DevinData)
-	if data.Model != "kimi-k2-6" || data.InputTokens != 2517 {
-		t.Fatalf("post-compaction: model=%s input=%d; want kimi-k2-6 2517",
 			data.Model, data.InputTokens)
 	}
 }
