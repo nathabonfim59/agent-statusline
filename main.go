@@ -4,8 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -39,6 +43,7 @@ Supported agents: Claude Code, Cursor, Devin CLI`,
 
 	root.AddCommand(initCmd())
 	root.AddCommand(proxyCmd())
+	root.AddCommand(devinCmd())
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -202,6 +207,111 @@ func proxyCmd() *cobra.Command {
 	cmd.AddCommand(statusCmd)
 
 	return cmd
+}
+
+func devinCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "devin [label]",
+		Short: "Render Devin CLI statusline from a running proxy session",
+		Long: `Fetch live Devin session data from a proxy and render the statusline.
+If a label is given, uses that specific proxy instance. Otherwise, uses the
+most recently started Devin proxy.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			label := ""
+			if len(args) > 0 {
+				label = args[0]
+			}
+			runDevinStatusline(label)
+		},
+	}
+}
+
+func runDevinStatusline(label string) {
+	port := findDevinPort(label)
+	if port == 0 {
+		if label != "" {
+			fmt.Fprintf(os.Stderr, "devin: no proxy with label '%s'\n", label)
+		} else {
+			fmt.Fprintf(os.Stderr, "devin: no live data (start proxy with: ./claude-statusline proxy start devin)\n")
+		}
+		os.Exit(1)
+	}
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/data", port)
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "devin: failed to fetch data: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "devin: failed to read response: %v\n", err)
+		os.Exit(1)
+	}
+
+	h := harness.Detect(body)
+	if h == nil {
+		os.Exit(1)
+	}
+
+	cfg := loadConfig()
+	t := loadTheme(cfg.Theme)
+	warn, danger := resolveThresholds(cfg, h.ModelID())
+	blockCfg := resolveBlocks(cfg, h.Name())
+	pct := h.ContextPct()
+	tw := h.TerminalWidth()
+
+	rendered := make(map[string]string)
+	for _, list := range [][]string{blockCfg.Line1, blockCfg.Line2} {
+		for _, name := range list {
+			if _, ok := rendered[name]; ok {
+				continue
+			}
+			if s := h.RenderBlock(name, t, pct, warn, danger); s != "" {
+				rendered[name] = s
+			}
+		}
+	}
+
+	line1 := buildLine(blockCfg.Line1, rendered, blockCfg.Compact, tw)
+	line2 := buildLine(blockCfg.Line2, rendered, blockCfg.Compact, tw)
+
+	fmt.Printf("%s\n%s\n", line1, line2)
+}
+
+func findDevinPort(label string) int {
+	pattern := "/tmp/claude-statusline-devin-*.port"
+	if label != "" {
+		portFile := fmt.Sprintf("/tmp/claude-statusline-devin-%s.port", label)
+		data, err := os.ReadFile(portFile)
+		if err != nil {
+			return 0
+		}
+		port := 0
+		fmt.Sscanf(string(data), "%d", &port)
+		return port
+	}
+
+	matches, err := filepath.Glob(pattern)
+	if err != nil || len(matches) == 0 {
+		return 0
+	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		iInfo, _ := os.Stat(matches[i])
+		jInfo, _ := os.Stat(matches[j])
+		return iInfo.ModTime().After(jInfo.ModTime())
+	})
+
+	data, err := os.ReadFile(matches[0])
+	if err != nil {
+		return 0
+	}
+	port := 0
+	fmt.Sscanf(string(data), "%d", &port)
+	return port
 }
 
 func availableHarnesses() []string {
