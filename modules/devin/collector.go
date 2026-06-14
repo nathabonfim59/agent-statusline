@@ -15,8 +15,9 @@ type DevinData struct {
 }
 
 type Collector struct {
-	mu   sync.RWMutex
-	data DevinData
+	mu        sync.RWMutex
+	data      DevinData
+	sessionID string
 }
 
 func NewCollector() *Collector {
@@ -54,7 +55,17 @@ func (c *Collector) handleChatMessage(data []byte) {
 
 	// Only track messages from the main session — subagent responses don't
 	// carry the Token Usage stats block (field 28).
+	sid := extractSessionID(msgs[0])
 	model := extractModel(msgs[0])
+
+	// Lock to the first session ID we see — ignore subagent/summarizer sessions.
+	if c.sessionID == "" {
+		if sid != "" {
+			c.sessionID = sid
+		}
+	} else if sid != "" && sid != c.sessionID {
+		return
+	}
 
 	var bestIt, bestOt int
 	hasStats := false
@@ -336,6 +347,37 @@ func parseStatValue(data []byte) int {
 		}
 	}
 	return 0
+}
+
+func extractSessionID(msg []byte) string {
+	pos := 0
+	for pos < len(msg) {
+		tag, vb := readVarint(msg, pos)
+		if vb == 0 {
+			break
+		}
+		pos += vb
+		fn := tag >> 3
+		wt := tag & 0x7
+		if wt == 2 {
+			length, lb := readVarint(msg, pos)
+			pos += lb
+			if fn == 1 && pos+length <= len(msg) {
+				return string(msg[pos : pos+length])
+			}
+			pos += length
+		} else if wt == 0 {
+			_, vv := readVarint(msg, pos)
+			pos += vv
+		} else if wt == 1 {
+			pos += 8
+		} else if wt == 5 {
+			pos += 4
+		} else {
+			break
+		}
+	}
+	return ""
 }
 
 func extractModel(msg []byte) string {
