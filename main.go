@@ -229,9 +229,9 @@ func proxyStart(harnessName string) {
 	fmt.Printf("%sProxy started for %s%s%s\n", harness.Green, harness.Bold, harnessName, harness.Reset)
 	fmt.Printf("  Proxy port: %s%d%s\n", harness.Cyan, srv.Port(), harness.Reset)
 	fmt.Printf("  Data port:  %s%d%s\n", harness.Cyan, srv.DataPort(), harness.Reset)
-	fmt.Printf("  Set: %sexport HTTP_PROXY=http://127.0.0.1:%d%s\n", harness.Green, srv.Port(), harness.Reset)
-	fmt.Printf("  Set: %sexport HTTPS_PROXY=http://127.0.0.1:%d%s\n", harness.Green, srv.Port(), harness.Reset)
-	fmt.Printf("  Data URL: %shttp://127.0.0.1:%d/data%s\n", harness.Dim, srv.DataPort(), harness.Reset)
+	fmt.Printf("  Data URL:   %shttp://127.0.0.1:%d/data%s\n\n", harness.Dim, srv.DataPort(), harness.Reset)
+	fmt.Printf("export HTTP_PROXY=http://127.0.0.1:%d\n", srv.Port())
+	fmt.Printf("export HTTPS_PROXY=http://127.0.0.1:%d\n", srv.Port())
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
