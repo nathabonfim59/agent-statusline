@@ -77,7 +77,10 @@ func InstallCA() error {
 	certPath := filepath.Join(dir, "ca-cert.pem")
 
 	if _, err := os.Stat(certPath); os.IsNotExist(err) {
-		return fmt.Errorf("CA cert not found at %s — run 'generate-ca' first", certPath)
+		fmt.Println("CA cert not found, generating...")
+		if _, _, err := GenerateCA(); err != nil {
+			return fmt.Errorf("failed to generate CA: %w", err)
+		}
 	}
 
 	switch runtime.GOOS {
