@@ -3,6 +3,7 @@ package devin
 import (
 	"encoding/binary"
 	"encoding/json"
+	"math"
 	"sync"
 )
 
@@ -60,12 +61,11 @@ func (c *Collector) handleChatMessage(data []byte) {
 
 	// Extract tokens from tail messages — take the highest (cumulative total)
 	var bestIt, bestOt int
-	start := len(msgs) - 20
-	if start < 0 {
-		start = 0
-	}
-	for _, msg := range msgs[start:] {
+	for _, msg := range msgs {
 		it, ot := extractTokens(msg)
+		if sit, sot := extractUsageStats(msg); sit > 0 || sot > 0 {
+			it, ot = sit, sot
+		}
 		if it > bestIt {
 			bestIt = it
 		}
@@ -74,8 +74,12 @@ func (c *Collector) handleChatMessage(data []byte) {
 		}
 	}
 	if bestIt > 0 || bestOt > 0 {
-		c.data.InputTokens = bestIt
-		c.data.OutputTokens = bestOt
+		if bestIt > c.data.InputTokens {
+			c.data.InputTokens = bestIt
+		}
+		if bestOt > c.data.OutputTokens {
+			c.data.OutputTokens = bestOt
+		}
 	}
 }
 
@@ -182,6 +186,154 @@ func extractTokens(msg []byte) (inputTokens, outputTokens int) {
 		}
 	}
 	return
+}
+
+func extractUsageStats(msg []byte) (inputTokens, outputTokens int) {
+	pos := 0
+	for pos < len(msg) {
+		tag, vb := readVarint(msg, pos)
+		if vb == 0 {
+			break
+		}
+		pos += vb
+		fn := tag >> 3
+		wt := tag & 0x7
+		if wt == 2 {
+			length, lb := readVarint(msg, pos)
+			pos += lb
+			if pos+length > len(msg) {
+				break
+			}
+			if fn == 28 {
+				it, ot := parseStatsBlock(msg[pos : pos+length])
+				if it > inputTokens {
+					inputTokens = it
+				}
+				if ot > outputTokens {
+					outputTokens = ot
+				}
+			}
+			pos += length
+		} else if wt == 0 {
+			_, vv := readVarint(msg, pos)
+			pos += vv
+		} else if wt == 1 {
+			pos += 8
+		} else if wt == 5 {
+			pos += 4
+		} else {
+			break
+		}
+	}
+	return
+}
+
+func parseStatsBlock(data []byte) (inputTokens, outputTokens int) {
+	pos := 0
+	for pos < len(data) {
+		tag, vb := readVarint(data, pos)
+		if vb == 0 {
+			break
+		}
+		pos += vb
+		fn := tag >> 3
+		wt := tag & 0x7
+		if wt == 2 {
+			length, lb := readVarint(data, pos)
+			pos += lb
+			if pos+length > len(data) {
+				break
+			}
+			if fn == 2 {
+				key, value := parseStatMetric(data[pos : pos+length])
+				if key == "input_tokens" && value > inputTokens {
+					inputTokens = value
+				} else if key == "output_tokens" && value > outputTokens {
+					outputTokens = value
+				}
+			}
+			pos += length
+		} else if wt == 0 {
+			_, vv := readVarint(data, pos)
+			pos += vv
+		} else if wt == 1 {
+			pos += 8
+		} else if wt == 5 {
+			pos += 4
+		} else {
+			break
+		}
+	}
+	return
+}
+
+func parseStatMetric(data []byte) (key string, value int) {
+	pos := 0
+	for pos < len(data) {
+		tag, vb := readVarint(data, pos)
+		if vb == 0 {
+			break
+		}
+		pos += vb
+		fn := tag >> 3
+		wt := tag & 0x7
+		if wt == 2 {
+			length, lb := readVarint(data, pos)
+			pos += lb
+			if pos+length > len(data) {
+				break
+			}
+			if fn == 4 {
+				value = parseStatValue(data[pos : pos+length])
+			} else if fn == 5 {
+				key = string(data[pos : pos+length])
+			}
+			pos += length
+		} else if wt == 0 {
+			_, vv := readVarint(data, pos)
+			pos += vv
+		} else if wt == 1 {
+			pos += 8
+		} else if wt == 5 {
+			pos += 4
+		} else {
+			break
+		}
+	}
+	return
+}
+
+func parseStatValue(data []byte) int {
+	pos := 0
+	for pos < len(data) {
+		tag, vb := readVarint(data, pos)
+		if vb == 0 {
+			break
+		}
+		pos += vb
+		fn := tag >> 3
+		wt := tag & 0x7
+		if wt == 5 {
+			if pos+4 > len(data) {
+				break
+			}
+			if fn == 2 {
+				return int(math.Round(float64(math.Float32frombits(binary.LittleEndian.Uint32(data[pos : pos+4])))))
+			}
+			pos += 4
+		} else if wt == 2 {
+			length, lb := readVarint(data, pos)
+			pos += lb + length
+		} else if wt == 0 {
+			_, vv := readVarint(data, pos)
+			pos += vv
+		} else if wt == 1 {
+			pos += 8
+		} else {
+			break
+		}
+	}
+	return 0
 }
 
 func extractModel(msg []byte) string {
