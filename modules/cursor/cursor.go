@@ -59,9 +59,9 @@ func New() *Harness {
 	return &Harness{}
 }
 
-func (h *Harness) Name() string   { return "cursor" }
+func (h *Harness) Name() string           { return "cursor" }
 func (h *Harness) Parse(raw []byte) error { return json.Unmarshal(raw, &h.in) }
-func (h *Harness) ModelID() string { return h.in.Model.ID }
+func (h *Harness) ModelID() string        { return h.in.Model.ID }
 
 func (h *Harness) ContextPct() float64 {
 	if u := h.in.ContextWindow.UsedPercentage; u != nil {
@@ -79,6 +79,7 @@ func (h *Harness) TerminalWidth() int {
 	}
 	return harness.TerminalWidth()
 }
+func (h *Harness) ProxyConfig() *harness.ProxyConfig { return nil }
 
 func (h *Harness) CWD() string {
 	if h.in.CWD != "" {
@@ -132,6 +133,7 @@ func (h *Harness) RenderBlock(name string, t harness.Theme, pct, warn, danger fl
 }
 
 func init() {
+	harness.RegisterNamed("cursor", func() harness.Harness { return New() })
 	harness.Register(func(raw []byte) (harness.Harness, error) {
 		var disc struct {
 			OutputStyle struct {

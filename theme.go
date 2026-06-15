@@ -53,6 +53,7 @@ type Config struct {
 	Blocks     BlockConfig                `yaml:"blocks"`
 	ClaudeCode HarnessConfig              `yaml:"claude_code"`
 	Cursor     HarnessConfig              `yaml:"cursor"`
+	Devin      HarnessConfig              `yaml:"devin"`
 }
 
 var builtinDefault = ThemeFile{
@@ -69,14 +70,14 @@ var builtinDefault = ThemeFile{
 func configDir() string {
 	if runtime.GOOS == "windows" {
 		if dir, err := os.UserConfigDir(); err == nil {
-			return filepath.Join(dir, "claude-statusline")
+			return filepath.Join(dir, "agent-statusline")
 		}
 	}
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "claude-statusline")
+		return filepath.Join(xdg, "agent-statusline")
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "claude-statusline")
+	return filepath.Join(home, ".config", "agent-statusline")
 }
 
 func runInit() {
@@ -133,6 +134,8 @@ func resolveBlocks(cfg Config, harnessName string) BlockConfig {
 		hc = cfg.ClaudeCode
 	case "cursor":
 		hc = cfg.Cursor
+	case "devin":
+		hc = cfg.Devin
 	default:
 		return cfg.Blocks
 	}
@@ -262,6 +265,8 @@ func getHarnessConfig(cfg Config, name string) *HarnessConfig {
 		return &cfg.ClaudeCode
 	case "cursor":
 		return &cfg.Cursor
+	case "devin":
+		return &cfg.Devin
 	}
 	return nil
 }

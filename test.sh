@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BINARY=./claude-statusline
+BINARY=./agent-statusline
 
 fail() { echo "FAIL: $1"; echo "$2"; exit 1; }
 check() { echo "$1" | grep -q "$2" || fail "$3" "$1"; }
@@ -50,8 +50,8 @@ echo "PASS"
 echo "--- Cursor blocks (vim, worktree, session, autorun, output_style) ---"
 tmpdir=$(mktemp -d)
 trap "rm -rf $tmpdir" EXIT
-mkdir -p "$tmpdir/claude-statusline"
-cat > "$tmpdir/claude-statusline/config.yaml" <<'EOF'
+mkdir -p "$tmpdir/agent-statusline"
+cat > "$tmpdir/agent-statusline/config.yaml" <<'EOF'
 blocks:
   line1: [model, git, project, version]
   line2: [bar, percent, cost, time, tokens, rates, diff, hash]

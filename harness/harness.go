@@ -33,6 +33,18 @@ type Theme struct {
 	Danger  string
 }
 
+type ProxyCollector interface {
+	HandleResponse(host string, path string, contentType string, body []byte)
+	GetData() interface{}
+	SetDebug(on bool)
+}
+
+type ProxyConfig struct {
+	Domains   []string
+	Collector ProxyCollector
+	Debug     bool
+}
+
 type Harness interface {
 	Name() string
 	Parse(raw []byte) error
@@ -41,6 +53,7 @@ type Harness interface {
 	ContextPct() float64
 	TerminalWidth() int
 	CWD() string
+	ProxyConfig() *ProxyConfig
 }
 
 func VisibleWidth(s string) int {

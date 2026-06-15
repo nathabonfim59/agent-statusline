@@ -1,0 +1,10 @@
+{
+  "input_tokens": 16500,
+  "output_tokens": 478,
+  "model": "deepseek-v4",
+  "quota": {
+    "plan": "Pro",
+    "daily_limit": 16384,
+    "daily_used": 600
+  }
+}

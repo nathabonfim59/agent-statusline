@@ -1,6 +1,6 @@
-.PHONY: build test clean vet
+.PHONY: build test clean vet release release-snapshot
 
-BINARY := claude-statusline
+BINARY := agent-statusline
 
 build:
 	go build -o $(BINARY) .
@@ -15,3 +15,9 @@ test: build vet
 
 clean:
 	rm -f $(BINARY)
+
+release-snapshot:
+	goreleaser release --snapshot --clean
+
+release:
+	goreleaser release --clean
