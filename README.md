@@ -33,6 +33,23 @@ $env:INSTALL_DIR = "C:\tools"; irm https://raw.githubusercontent.com/nathabonfim
 
 Both scripts will print instructions if the install directory is not in your `PATH`.
 
+Environment variables supported by the install scripts:
+
+- `VERSION` — install a specific release tag instead of the latest `v*` release.
+- `INSTALL_DIR` — target directory for the binary.
+- `NO_INSTALL_CONFIG` — skip copying bundled themes/example config.
+
+**Install from a release archive with the GitHub CLI**
+
+```bash
+gh release download --repo nathabonfim59/agent-statusline --pattern '*linux_amd64.tar.gz'
+tar -xzf agent-statusline_*.tar.gz
+```
+
+**Linux packages (deb / rpm / apk / arch)**
+
+Go to the [latest release](https://github.com/nathabonfim59/agent-statusline/releases/latest) and download the package for your distro, or use `gh release download` with the appropriate pattern (`*.deb`, `*.rpm`, `*.apk`, `*.pkg.tar.zst`).
+
 Or via `go install`:
 
 ```bash

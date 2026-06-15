@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type LocalData struct {
@@ -33,7 +33,7 @@ func loadLocalData() (*LocalData, ModelConfigs) {
 
 	// Read active session from sessions.db
 	dbPath := filepath.Join(dir, "sessions.db")
-	db, err := sql.Open("sqlite3", dbPath+"?mode=ro")
+	db, err := sql.Open("sqlite", dbPath+"?mode=ro")
 	if err != nil {
 		return ld, models
 	}

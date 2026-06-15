@@ -16,6 +16,23 @@ go build -o agent-statusline .
 echo '{"session_id":"test","model":{"id":"claude-sonnet-4-6","display_name":"Claude Sonnet 4.6"}}' | ./agent-statusline
 ```
 
+## Release
+
+Releases are built and published by GoReleaser + nFPM. Pushing a `v*` tag triggers `.github/workflows/release.yaml`.
+
+Test the release pipeline locally (no publish):
+
+```bash
+make release-snapshot
+```
+
+Cut a release:
+
+```bash
+git tag -a v0.1.0 -m "release v0.1.0"
+git push origin v0.1.0
+```
+
 ## Architecture
 
 A stdin-to-stdout CLI filter that renders a two-line ANSI status bar for Claude Code and Cursor sessions. Reads a JSON blob from stdin and prints a colored status bar to stdout.
@@ -50,7 +67,7 @@ Config lives at `~/.config/agent-statusline/config.yaml`.
 
 ## Key Details
 
-- Pure Go, single external dependency: `gopkg.in/yaml.v3`
+- Pure Go, no CGO required. External dependencies: `gopkg.in/yaml.v3` and `modernc.org/sqlite` (used only by the Devin local-DB harness).
 - No CLI flags — driven entirely by stdin JSON and config file
 - Git info is gathered by shelling out to `git -C <dir>` (not a Go git library)
 - Detection order: Cursor (checks `output_style.name`) → Claude Code (fallback)

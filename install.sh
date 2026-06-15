@@ -4,8 +4,23 @@ set -e
 REPO="nathabonfim59/agent-statusline"
 BINARY="agent-statusline"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
+CONFIG_DIR="${CONFIG_DIR:-$HOME/.config/agent-statusline}"
 
-# detect OS
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+need_cmd() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "Error: required command '$1' not found" >&2
+        exit 1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Detect platform
+# ---------------------------------------------------------------------------
+
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 case "$OS" in
     linux)  ;;
@@ -13,7 +28,6 @@ case "$OS" in
     *) echo "Unsupported OS: $OS"; exit 1 ;;
 esac
 
-# detect arch
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64)        ARCH="amd64" ;;
@@ -21,14 +35,18 @@ case "$ARCH" in
     *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-# detect musl libc on linux
-MUSL=""
-if [ "$OS" = "linux" ] && ldd /bin/sh 2>&1 | grep -qi musl; then
-    MUSL="-musl"
+# ---------------------------------------------------------------------------
+# Resolve the latest v* release
+# ---------------------------------------------------------------------------
+
+VERSION="${VERSION:-}"
+
+if [ -z "$VERSION" ] && command -v gh >/dev/null 2>&1; then
+    VERSION=$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true)
 fi
 
-# resolve version
 if [ -z "$VERSION" ]; then
+    need_cmd curl
     VERSION=$(curl -sf "https://api.github.com/repos/${REPO}/releases/latest" \
         | grep '"tag_name"' \
         | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
@@ -39,27 +57,59 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-EXT=""
-[ "$OS" = "windows" ] && EXT=".exe"
+# ---------------------------------------------------------------------------
+# Download and extract the archive
+# ---------------------------------------------------------------------------
 
-FILENAME="${BINARY}-${OS}-${ARCH}${MUSL}${EXT}"
+EXT="tar.gz"
+FILENAME="${BINARY}_${VERSION}_${OS}_${ARCH}.${EXT}"
 URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
 
-echo "Downloading ${BINARY} ${VERSION} for ${OS}/${ARCH}${MUSL}..."
-curl -fsSL "$URL" -o "/tmp/${BINARY}"
-chmod +x "/tmp/${BINARY}"
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+echo "Downloading ${BINARY} ${VERSION} for ${OS}/${ARCH}..."
+need_cmd curl
+curl -fsSL "$URL" -o "${TMP_DIR}/${FILENAME}"
+
+echo "Extracting ${FILENAME}..."
+need_cmd tar
+tar -xzf "${TMP_DIR}/${FILENAME}" -C "$TMP_DIR"
+
+# ---------------------------------------------------------------------------
+# Install binary
+# ---------------------------------------------------------------------------
 
 mkdir -p "$INSTALL_DIR"
 echo "Installing to ${INSTALL_DIR}/${BINARY}..."
 if [ -w "$INSTALL_DIR" ]; then
-    mv "/tmp/${BINARY}" "${INSTALL_DIR}/${BINARY}"
+    mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
 else
-    sudo mv "/tmp/${BINARY}" "${INSTALL_DIR}/${BINARY}"
+    sudo mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
 fi
+chmod +x "${INSTALL_DIR}/${BINARY}"
+
+# ---------------------------------------------------------------------------
+# Install bundled themes and example config once
+# ---------------------------------------------------------------------------
+
+if [ -z "$NO_INSTALL_CONFIG" ] && [ ! -d "$CONFIG_DIR" ]; then
+    echo "Installing default themes and example config to ${CONFIG_DIR}..."
+    mkdir -p "$CONFIG_DIR"
+    if [ -f "${TMP_DIR}/config.example.yaml" ]; then
+        cp "${TMP_DIR}/config.example.yaml" "${CONFIG_DIR}/config.yaml"
+    fi
+    if [ -d "${TMP_DIR}/themes" ]; then
+        cp -r "${TMP_DIR}/themes" "${CONFIG_DIR}/themes"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# PATH reminder
+# ---------------------------------------------------------------------------
 
 echo "Installed ${BINARY} ${VERSION} -> ${INSTALL_DIR}/${BINARY}"
 
-# check if install dir is in PATH
 case ":$PATH:" in
     *":${INSTALL_DIR}:"*) ;;
     *)
