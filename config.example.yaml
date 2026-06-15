@@ -1,9 +1,9 @@
-# claude-statusline configuration
+# agent-statusline configuration
 # See https://github.com/nathabonfim59/agent-statusline for docs.
 
 # Theme to use for the status bar colors.
 # Built-in themes: default, onedark, monokai, catppuccin, dracula, jetbrains, oggu
-# You can also create custom themes in ~/.config/claude-statusline/themes/
+# You can also create custom themes in ~/.config/agent-statusline/themes/
 theme: default
 
 # Context window progress bar thresholds (%).

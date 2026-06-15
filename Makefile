@@ -1,6 +1,6 @@
 .PHONY: build test clean vet
 
-BINARY := claude-statusline
+BINARY := agent-statusline
 
 build:
 	go build -o $(BINARY) .

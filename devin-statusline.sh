@@ -4,11 +4,11 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-STATUSLINE="${DIR}/claude-statusline"
+STATUSLINE="${DIR}/agent-statusline"
 LABEL="${1:-}"
 
 if [[ -n "$LABEL" ]]; then
-    PORT_FILE="/tmp/claude-statusline-devin-${LABEL}.port"
+    PORT_FILE="/tmp/agent-statusline-devin-${LABEL}.port"
     if [[ -f "$PORT_FILE" ]]; then
         PORT=$(cat "$PORT_FILE")
         curl -s "http://127.0.0.1:${PORT}/data" | "$STATUSLINE"
@@ -17,12 +17,12 @@ if [[ -n "$LABEL" ]]; then
     fi
 else
     # Find most recent port file
-    PORT_FILE=$(ls -t /tmp/claude-statusline-devin-*.port 2>/dev/null | head -1)
+    PORT_FILE=$(ls -t /tmp/agent-statusline-devin-*.port 2>/dev/null | head -1)
     if [[ -n "$PORT_FILE" ]]; then
         PORT=$(cat "$PORT_FILE")
         curl -s "http://127.0.0.1:${PORT}/data" | "$STATUSLINE"
     else
-        echo "devin: no live data (start proxy with: ./claude-statusline proxy start devin)"
+        echo "devin: no live data (start proxy with: ./agent-statusline proxy start devin)"
     fi
 fi
 echo

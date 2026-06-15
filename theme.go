@@ -70,14 +70,14 @@ var builtinDefault = ThemeFile{
 func configDir() string {
 	if runtime.GOOS == "windows" {
 		if dir, err := os.UserConfigDir(); err == nil {
-			return filepath.Join(dir, "claude-statusline")
+			return filepath.Join(dir, "agent-statusline")
 		}
 	}
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "claude-statusline")
+		return filepath.Join(xdg, "agent-statusline")
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "claude-statusline")
+	return filepath.Join(home, ".config", "agent-statusline")
 }
 
 func runInit() {

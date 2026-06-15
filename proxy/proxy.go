@@ -35,10 +35,6 @@ type ProxyServer struct {
 }
 
 func Start(config harness.ProxyConfig) (*ProxyServer, error) {
-	if config.Collector != nil {
-		config.Collector.SetDebug(config.Debug)
-	}
-
 	certPEM, keyPEM, err := LoadOrGenerateCA()
 	if err != nil {
 		return nil, fmt.Errorf("load CA: %w", err)
@@ -54,6 +50,14 @@ func Start(config harness.ProxyConfig) (*ProxyServer, error) {
 	caKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("parse CA key: %w", err)
+	}
+
+	return NewServer(config, caCert, caKey)
+}
+
+func NewServer(config harness.ProxyConfig, caCert *x509.Certificate, caKey *rsa.PrivateKey) (*ProxyServer, error) {
+	if config.Collector != nil {
+		config.Collector.SetDebug(config.Debug)
 	}
 
 	ln, err := net.Listen("tcp", ":0")

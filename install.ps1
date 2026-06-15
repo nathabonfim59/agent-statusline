@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $Repo      = "nathabonfim59/agent-statusline"
-$Binary    = "claude-statusline"
+$Binary    = "agent-statusline"
 $InstallDir = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "$env:USERPROFILE\.local\bin" }
 
 # detect arch

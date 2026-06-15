@@ -1,4 +1,4 @@
-# CC-statusline
+# agent-statusline
 
 A fast, customizable and themeable status line for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Single Go binary. Works in tmux and doesn't break when you resize your terminal.
 
@@ -44,7 +44,7 @@ Or build from source:
 ```bash
 git clone https://github.com/nathabonfim59/agent-statusline.git
 cd agent-statusline
-go build -o claude-statusline .
+go build -o agent-statusline .
 ```
 
 Then add it to your Claude Code settings (`~/.claude/settings.json`):
@@ -53,7 +53,7 @@ Then add it to your Claude Code settings (`~/.claude/settings.json`):
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.local/bin/claude-statusline"
+    "command": "~/.local/bin/agent-statusline"
   }
 }
 ```
@@ -63,10 +63,10 @@ Then add it to your Claude Code settings (`~/.claude/settings.json`):
 Generate a config file with sensible defaults:
 
 ```bash
-claude-statusline init
+agent-statusline init
 ```
 
-This creates `~/.config/claude-statusline/config.yaml` (or `%AppData%\claude-statusline\config.yaml` on Windows).
+This creates `~/.config/agent-statusline/config.yaml` (or `%AppData%\agent-statusline\config.yaml` on Windows).
 
 ## Configuration
 
@@ -100,7 +100,7 @@ Built-in themes:
 | JetBrains Dark | `jetbrains` | <img width="752" height="72" alt="image" src="https://github.com/user-attachments/assets/736f598a-7ed7-4664-9e0d-a641e17e3f43" /> |
 | Oggu | `oggu` | <img width="752" height="72" alt="image" src="https://github.com/user-attachments/assets/6a390604-f7fc-4cf3-af06-7ed340fe7d86" /> |
 
-Set to a custom name to load `~/.config/claude-statusline/themes/<name>.yaml`.
+Set to a custom name to load `~/.config/agent-statusline/themes/<name>.yaml`.
 
 ### Thresholds
 
@@ -184,13 +184,13 @@ danger: "\033[38;5;75m"   # raw ANSI escape
 
 ### Resolution order
 
-1. Local override (`~/.config/claude-statusline/themes/<name>.yaml`)
+1. Local override (`~/.config/agent-statusline/themes/<name>.yaml`)
 2. Built-in (compiled-in `themes/*.yaml`)
 3. Hard-coded fallback (cyan/white/green/yellow/red)
 
 ## Creating a Custom Theme
 
-1. Create a YAML file in `~/.config/claude-statusline/themes/`:
+1. Create a YAML file in `~/.config/agent-statusline/themes/`:
 
    ```yaml
    name: My Theme
@@ -211,10 +211,54 @@ danger: "\033[38;5;75m"   # raw ANSI escape
 3. Test it:
 
    ```bash
-   echo '{"session_id":"test","model":{"id":"claude-sonnet-4-6","display_name":"Sonnet 4.6"},"cwd":"/tmp/myproject","context_window":{"context_window_size":200000,"used_percentage":42,"current_usage":{"input_tokens":80000,"cache_read_input_tokens":50000,"cache_creation_input_tokens":0,"output_tokens":3000}},"cost":{"total_cost_usd":1.23,"total_duration_ms":185000,"total_api_duration_ms":120000,"total_lines_added":45,"total_lines_removed":12},"rate_limits":{"five_hour":{"used_percentage":30},"seven_day":{"used_percentage":15}}}' | ./claude-statusline
+   echo '{"session_id":"test","model":{"id":"claude-sonnet-4-6","display_name":"Sonnet 4.6"},"cwd":"/tmp/myproject","context_window":{"context_window_size":200000,"used_percentage":42,"current_usage":{"input_tokens":80000,"cache_read_input_tokens":50000,"cache_creation_input_tokens":0,"output_tokens":3000}},"cost":{"total_cost_usd":1.23,"total_duration_ms":185000,"total_api_duration_ms":120000,"total_lines_added":45,"total_lines_removed":12},"rate_limits":{"five_hour":{"used_percentage":30},"seven_day":{"used_percentage":15}}}' | ./agent-statusline
    ```
 
 You can mix color formats, and only `primary` is required. Missing roles fall back to defaults. Placing a file like `monokai.yaml` in your themes directory overrides the built-in of the same name.
+
+## Proxy daemon (Devin)
+
+The Devin harness can intercept live API traffic to show real-time token usage and quota. Instead of starting a new OS process per proxy, `agent-statusline` runs a single daemon that manages isolated proxy instances on separate ports.
+
+Install the daemon as a systemd user service:
+
+```bash
+agent-statusline proxy install-systemd --user
+```
+
+Start a Devin proxy:
+
+```bash
+agent-statusline proxy start devin
+```
+
+The command returns immediately and prints the `HTTP_PROXY` / `HTTPS_PROXY` settings. Run it again to start another isolated instance — each gets its own listeners and collector, so data never mingles.
+
+Show the live statusline:
+
+```bash
+agent-statusline devin
+```
+
+Or for a specific instance:
+
+```bash
+agent-statusline devin <label>
+```
+
+Stop instances:
+
+```bash
+agent-statusline proxy stop <label>   # stop one
+agent-statusline proxy stop           # stop all
+agent-statusline proxy status         # list running instances
+```
+
+For a shared system service (requires root and a dedicated `agent-statusline` user):
+
+```bash
+sudo agent-statusline proxy install-systemd --system
+```
 
 ### Acknowledgment
 

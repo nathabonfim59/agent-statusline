@@ -2,7 +2,7 @@
 set -e
 
 REPO="nathabonfim59/agent-statusline"
-BINARY="claude-statusline"
+BINARY="agent-statusline"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
 # detect OS

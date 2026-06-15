@@ -91,6 +91,7 @@ func (h *Harness) RenderBlock(name string, t harness.Theme, pct, warn, danger fl
 }
 
 func init() {
+	harness.RegisterNamed("devin", func() harness.Harness { return New() })
 	harness.Register(func(raw []byte) (harness.Harness, error) {
 		var disc struct {
 			Quota *QuotaInfo `json:"quota"`
