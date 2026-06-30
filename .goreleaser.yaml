@@ -1,0 +1,152 @@
+version: 2
+
+project_name: agent-statusline
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: agent-statusline
+    main: .
+    binary: agent-statusline
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.CommitDate}}
+
+archives:
+  - id: tarball
+    ids:
+      - agent-statusline
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - src: LICENSE
+        dst: LICENSE
+      - src: README.md
+        dst: README.md
+      - src: config.example.yaml
+        dst: config.example.yaml
+      - src: themes/*.yaml
+        dst: themes/
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+nfpms:
+  # Debian / Ubuntu
+  - id: deb
+    package_name: agent-statusline
+    file_name_template: >-
+      {{ .PackageName }}_
+      {{- .Version }}_
+      {{- .Arch }}_deb
+    vendor: nathabonfim59
+    homepage: https://github.com/nathabonfim59/agent-statusline
+    maintainer: nathabonfim59 <nathabonfim59@users.noreply.github.com>
+    description: A fast, customizable status line for AI coding agents.
+    license: MIT
+    formats:
+      - deb
+    bindir: /usr/local/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/licenses/agent-statusline/LICENSE
+      - src: ./README.md
+        dst: /usr/share/doc/agent-statusline/README.md
+      - src: ./config.example.yaml
+        dst: /usr/share/agent-statusline/config.example.yaml
+      - src: ./themes/*.yaml
+        dst: /usr/share/agent-statusline/themes/
+
+  # Alpine
+  - id: apk
+    package_name: agent-statusline
+    file_name_template: >-
+      {{ .PackageName }}_
+      {{- .Version }}_
+      {{- .Arch }}_apk
+    vendor: nathabonfim59
+    homepage: https://github.com/nathabonfim59/agent-statusline
+    maintainer: nathabonfim59 <nathabonfim59@users.noreply.github.com>
+    description: A fast, customizable status line for AI coding agents.
+    license: MIT
+    formats:
+      - apk
+    bindir: /usr/local/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/licenses/agent-statusline/LICENSE
+      - src: ./README.md
+        dst: /usr/share/doc/agent-statusline/README.md
+      - src: ./config.example.yaml
+        dst: /usr/share/agent-statusline/config.example.yaml
+      - src: ./themes/*.yaml
+        dst: /usr/share/agent-statusline/themes/
+
+  # Arch Linux
+  - id: archlinux
+    package_name: agent-statusline
+    file_name_template: >-
+      {{ .PackageName }}_
+      {{- .Version }}_
+      {{- .Arch }}_arch
+    vendor: nathabonfim59
+    homepage: https://github.com/nathabonfim59/agent-statusline
+    maintainer: nathabonfim59 <nathabonfim59@users.noreply.github.com>
+    description: A fast, customizable status line for AI coding agents.
+    license: MIT
+    formats:
+      - archlinux
+    bindir: /usr/local/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/licenses/agent-statusline/LICENSE
+      - src: ./README.md
+        dst: /usr/share/doc/agent-statusline/README.md
+      - src: ./config.example.yaml
+        dst: /usr/share/agent-statusline/config.example.yaml
+      - src: ./themes/*.yaml
+        dst: /usr/share/agent-statusline/themes/
+
+release:
+  github:
+    owner: nathabonfim59
+    name: agent-statusline
+  draft: true
+  prerelease: auto
+  name_template: "{{ .ProjectName }} {{ .Version }}"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
