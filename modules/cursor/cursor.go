@@ -133,15 +133,11 @@ func (h *Harness) RenderBlock(name string, t harness.Theme, pct, warn, danger fl
 
 func init() {
 	harness.Register(func(raw []byte) (harness.Harness, error) {
-		var disc struct {
-			OutputStyle struct {
-				Name string `json:"name"`
-			} `json:"output_style"`
-		}
-		if err := json.Unmarshal(raw, &disc); err != nil {
+		var keys map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &keys); err != nil {
 			return nil, err
 		}
-		if disc.OutputStyle.Name == "" {
+		if _, isCursor := keys["autorun"]; !isCursor {
 			return nil, fmt.Errorf("not cursor input")
 		}
 
