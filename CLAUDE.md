@@ -16,6 +16,23 @@ go build -o claude-statusline .
 echo '{"session_id":"test","model":{"id":"claude-sonnet-4-6","display_name":"Claude Sonnet 4.6"}}' | ./claude-statusline
 ```
 
+## Release
+
+Releases are built and published by GoReleaser + nFPM. Pushing a `v*` tag triggers `.github/workflows/release.yaml`.
+
+Test the release pipeline locally (no publish):
+
+```bash
+make release-snapshot
+```
+
+Cut a release:
+
+```bash
+git tag -a v0.1.0 -m "release v0.1.0"
+git push origin v0.1.0
+```
+
 ## Architecture
 
 A stdin-to-stdout CLI filter that renders a two-line ANSI status bar for Claude Code and Cursor sessions. Reads a JSON blob from stdin and prints a colored status bar to stdout.
