@@ -10,9 +10,12 @@ import (
 func renderModel(in *Input, t harness.Theme) string {
 	ctxHuman := harness.HumanTokens(in.ContextWindow.ContextWindowSize)
 
-	ctxInUse := in.ContextWindow.CurrentUsage.CacheReadInputTokens +
-		in.ContextWindow.CurrentUsage.CacheCreationInputTokens +
-		in.ContextWindow.CurrentUsage.InputTokens
+	ctxInUse := in.ContextWindow.TotalInputTokens
+	if ctxInUse == 0 {
+		ctxInUse = in.ContextWindow.CurrentUsage.CacheReadInputTokens +
+			in.ContextWindow.CurrentUsage.CacheCreationInputTokens +
+			in.ContextWindow.CurrentUsage.InputTokens
+	}
 
 	result := fmt.Sprintf("%s%s%s%s", t.Primary, harness.Bold, in.Model.DisplayName, harness.Reset)
 	if !strings.Contains(in.Model.DisplayName, "context") {
