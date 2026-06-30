@@ -5,9 +5,9 @@ import (
 )
 
 // barBrackets controls whether the Bar block wraps the progress bar in
-// "[" and "]" brackets. It defaults to true and can be toggled via
+// "[" and "]" brackets. It defaults to false and can be toggled via
 // SetBarBrackets from the resolved config.
-var barBrackets = true
+var barBrackets = false
 
 // SetBarBrackets enables or disables the "[" / "]" brackets around the
 // context progress bar. Call once during startup from the resolved config.

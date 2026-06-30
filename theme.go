@@ -274,10 +274,10 @@ func getHarnessConfig(cfg Config, name string) *HarnessConfig {
 }
 
 // barBracketsEnabled reports whether the context progress bar should be
-// wrapped in "[" / "]" brackets. Defaults to true when unset.
+// wrapped in "[" / "]" brackets. Defaults to false when unset.
 func barBracketsEnabled(cfg Config) bool {
 	if cfg.Bar.Brackets == nil {
-		return true
+		return false
 	}
 	return *cfg.Bar.Brackets
 }

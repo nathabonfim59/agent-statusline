@@ -16,7 +16,7 @@ thresholds:
     danger: 75
 
 # --- Context progress bar options ---
-# brackets: wrap the bar block in "[" and "]" (default: true)
+# brackets: wrap the bar block in "[" and "]" (default: false)
 #bar:
 #  brackets: true
 
