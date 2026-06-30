@@ -47,10 +47,17 @@ type HarnessConfig struct {
 	Blocks  BlockConfig `yaml:"blocks"`
 }
 
+// BarConfig configures the context progress bar block.
+// Brackets is a pointer so an unset value can default to true.
+type BarConfig struct {
+	Brackets *bool `yaml:"brackets"`
+}
+
 type Config struct {
 	Theme      string                     `yaml:"theme"`
 	Thresholds map[string]ThresholdConfig `yaml:"thresholds"`
 	Blocks     BlockConfig                `yaml:"blocks"`
+	Bar        BarConfig                  `yaml:"bar"`
 	ClaudeCode HarnessConfig              `yaml:"claude_code"`
 	Cursor     HarnessConfig              `yaml:"cursor"`
 }
@@ -264,4 +271,13 @@ func getHarnessConfig(cfg Config, name string) *HarnessConfig {
 		return &cfg.Cursor
 	}
 	return nil
+}
+
+// barBracketsEnabled reports whether the context progress bar should be
+// wrapped in "[" / "]" brackets. Defaults to false when unset.
+func barBracketsEnabled(cfg Config) bool {
+	if cfg.Bar.Brackets == nil {
+		return false
+	}
+	return *cfg.Bar.Brackets
 }
