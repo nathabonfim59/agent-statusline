@@ -8,6 +8,7 @@ import (
 	"strings"
 
 "github.com/nathabonfim59/agent-statusline/harness"
+	"github.com/nathabonfim59/agent-statusline/shared"
 
 	_ "github.com/nathabonfim59/agent-statusline/claude_code"
 
@@ -69,6 +70,7 @@ func main() {
 
 	cfg := loadConfig()
 	t := loadTheme(cfg.Theme)
+	shared.SetBarBrackets(barBracketsEnabled(cfg))
 
 	var buf bytes.Buffer
 	scanner := bufio.NewScanner(os.Stdin)

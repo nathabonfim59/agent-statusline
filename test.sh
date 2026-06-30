@@ -71,4 +71,38 @@ check "$output" "AUTO"             "missing autorun block"
 check "$output" "default"          "missing output_style block"
 echo "PASS"
 
+# --- Bar brackets option ---
+echo "--- Bar brackets option ---"
+strip_ansi() { sed -E 's/\x1b\[[0-9;]*m//g'; }
+
+tmpdir2=$(mktemp -d)
+trap "rm -rf $tmpdir $tmpdir2" EXIT
+mkdir -p "$tmpdir2/claude-statusline"
+cat > "$tmpdir2/claude-statusline/config.yaml" <<'EOF'
+bar:
+  brackets: false
+blocks:
+  line1: [model]
+  line2: [bar, percent]
+  compact: [model, bar, percent]
+EOF
+line2_off=$(cat testdata/claude_code.json | XDG_CONFIG_HOME="$tmpdir2" $BINARY 2>&1 | sed -n '2p' | strip_ansi)
+nocheck "$line2_off" '^\[' "bar should not be wrapped in [ when brackets: false (got: $line2_off)"
+nocheck "$line2_off" '\] |' "bar should not be wrapped in ] when brackets: false (got: $line2_off)"
+
+# Default (brackets unset) should still wrap the bar in [ ]
+tmpdir3=$(mktemp -d)
+trap "rm -rf $tmpdir $tmpdir2 $tmpdir3" EXIT
+mkdir -p "$tmpdir3/claude-statusline"
+cat > "$tmpdir3/claude-statusline/config.yaml" <<'EOF'
+blocks:
+  line1: [model]
+  line2: [bar, percent]
+  compact: [model, bar, percent]
+EOF
+line2_on=$(cat testdata/claude_code.json | XDG_CONFIG_HOME="$tmpdir3" $BINARY 2>&1 | sed -n '2p' | strip_ansi)
+check   "$line2_on" '^\[' "bar should be wrapped in [ by default (got: $line2_on)"
+check   "$line2_on" '\] |' "bar should be wrapped in ] by default (got: $line2_on)"
+echo "PASS"
+
 echo "=== all tests passed ==="
